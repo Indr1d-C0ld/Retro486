@@ -66,6 +66,8 @@ export class Input {
     target.addEventListener('wheel', (e) => this._wheel(e), { passive: false });
     target.addEventListener('contextmenu', (e) => e.preventDefault());
     document.addEventListener('pointerlockchange', () => this._lockChanged());
+    // Retro486: se il browser nega il blocco del puntatore si passa alla cattura di riserva
+    document.addEventListener('pointerlockerror', () => { if (this._wantLock) this._softCapture(); });
 
     this._gamepadLoop = this._gamepadLoop.bind(this);
     requestAnimationFrame(this._gamepadLoop);
@@ -120,18 +122,70 @@ export class Input {
 
   // ---- mouse ----
 
+  // Retro486: su Linux Chrome rifiuta unadjustedMovement e la seconda richiesta,
+  // fatta fuori dal gesto del clic, falliva in silenzio: il mouse restava morto.
+  // Ora la richiesta semplice parte subito su Linux, e ogni fallimento porta alla
+  // cattura di riserva (_softCapture) invece che al nulla.
   capture() {
     if (this.captured || !this.mouseEnabled || this.absolute) return;
-    const p = this.target.requestPointerLock?.({ unadjustedMovement: true });
-    if (p && p.catch) p.catch(() => this.target.requestPointerLock());
+    if (!this.target.requestPointerLock) { this._softCapture(); return; }
+    const linux = /Linux/i.test(navigator.platform || navigator.userAgent) && !/Android/i.test(navigator.userAgent);
+    this._wantLock = true;
+    clearTimeout(this._lockTimer);
+    // se entro un secondo il blocco non arriva, cattura di riserva
+    this._lockTimer = setTimeout(() => { if (this._wantLock && !this.captured) this._softCapture(); }, 1000);
+    let p;
+    try {
+      p = linux ? this.target.requestPointerLock() : this.target.requestPointerLock({ unadjustedMovement: true });
+    } catch (e) {
+      this._softCapture();
+      return;
+    }
+    if (p && p.catch) {
+      p.catch(() => {
+        if (linux) { this._softCapture(); return; }
+        try {
+          const q = this.target.requestPointerLock();
+          if (q && q.catch) q.catch(() => this._softCapture());
+        } catch (e) { this._softCapture(); }
+      });
+    }
+  }
+
+  // Cattura senza blocco del puntatore: finché il puntatore è sullo schermo
+  // emulato, movimenti e pulsanti vanno al PC virtuale.
+  _softCapture() {
+    clearTimeout(this._lockTimer);
+    this._wantLock = false;
+    if (this.captured) return;
+    this.soft = true;
+    this.captured = true;
+    this.target.classList.add('soft-capture');
+    this.emu.command('mouse_capture 1');
+    this.onCaptureChange(true);
   }
 
   release() {
+    if (this.soft) {
+      this.soft = false;
+      this.captured = false;
+      this.target.classList.remove('soft-capture');
+      if (this.buttons) { this.buttons = 0; this.emu.mouseButtons(0); }
+      this.emu.command('mouse_capture 0');
+      this.onCaptureChange(false);
+      return;
+    }
     if (document.pointerLockElement) document.exitPointerLock();
   }
 
   _lockChanged() {
+    if (this.soft) {
+      // il blocco vero è arrivato dopo la cattura di riserva: si passa a quello
+      if (document.pointerLockElement === this.target) { this.soft = false; this.target.classList.remove('soft-capture'); }
+      return;
+    }
     const locked = document.pointerLockElement === this.target;
+    if (locked) { this._wantLock = false; clearTimeout(this._lockTimer); }
     if (locked === this.captured) return;
     this.captured = locked;
     if (!locked && this.buttons) {
@@ -181,6 +235,7 @@ export class Input {
       return;
     }
     if (!this.captured) return;
+    if (this.soft && e.target !== this.target) return;
     this.emu.mouseMove(e.movementX, e.movementY);
   }
 

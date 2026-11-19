@@ -298,3 +298,6 @@ body { background: var(--c0); }
 .r-crt-wrap { position: relative; }
 .r-crt-wrap canvas { display: block; width: 100%; aspect-ratio: 4 / 3; border-radius: 12px; image-rendering: pixelated; }
 .r-crt-wrap .crt-css { inset: 0; }
+
+/* cattura del mouse senza blocco del puntatore: si nasconde quello del sistema */
+.screen-area canvas.soft-capture { cursor: none; }
