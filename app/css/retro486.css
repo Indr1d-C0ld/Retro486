@@ -1,0 +1,300 @@
+/* Retro486 - tema BIOS/DOS. Palette CGA/EGA a 16 colori, font VGA 8x16. */
+
+@font-face {
+  font-family: 'Retro486 VGA';
+  src: url('../fonts/vga8x16.woff') format('woff');
+  font-display: block;
+}
+
+:root {
+  --c0: #000000; --c1: #0000aa; --c2: #00aa00; --c3: #00aaaa; --c4: #aa0000; --c5: #aa00aa; --c6: #aa5500; --c7: #aaaaaa;
+  --c8: #555555; --c9: #5555ff; --c10: #55ff55; --c11: #55ffff; --c12: #ff5555; --c13: #ff55ff; --c14: #ffff55; --c15: #ffffff;
+  --r-font: 'Retro486 VGA', 'DejaVu Sans Mono', monospace;
+  --r-bg: var(--c1);
+  --r-fg: var(--c7);
+  --r-hi: var(--c15);
+  --r-accent: var(--c14);
+  --r-cell: 16px;
+}
+
+html, body { height: 100%; margin: 0; }
+body { background: var(--c0); }
+#app { height: 100%; }
+
+/* --------------------------------------------------- schermo del portale */
+
+.r-screen, .r-boot {
+  font-family: var(--r-font);
+  font-size: var(--r-cell);
+  line-height: var(--r-cell);
+  background: var(--r-bg);
+  color: var(--r-fg);
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+}
+.r-screen *, .r-boot * { font-family: inherit; }
+
+.r-head {
+  display: flex; align-items: center; gap: 16px;
+  padding: 8px 16px;
+  background: var(--c3); color: var(--c0);
+  border-bottom: 2px solid var(--c0);
+}
+.r-logo { display: flex; align-items: center; gap: 8px; color: var(--c15); font-size: 32px; line-height: 32px; letter-spacing: 2px; text-shadow: 2px 2px 0 var(--c0); }
+.r-logo b { color: var(--c14); font-weight: normal; }
+.r-logo img { width: 32px; height: 32px; image-rendering: pixelated; }
+.r-logo.small { font-size: 16px; line-height: 16px; letter-spacing: 1px; text-shadow: 1px 1px 0 var(--c0); }
+.r-sub { color: var(--c0); }
+.r-head .r-sub { margin-left: auto; }
+
+.r-tabs { display: flex; flex-wrap: wrap; background: var(--c7); border-bottom: 2px solid var(--c0); }
+.r-tabs button {
+  font: inherit; border: 0; background: transparent; color: var(--c0);
+  padding: 4px 14px; cursor: pointer;
+}
+.r-tabs button .k, .r-status .k { color: var(--c4); }
+.r-tabs button:hover { background: var(--c8); color: var(--c15); }
+.r-tabs button.on { background: var(--c4); color: var(--c15); }
+.r-tabs button.on .k { color: var(--c14); }
+
+.r-body { flex: 1; padding: 16px; overflow: auto; }
+.r-loading { color: var(--c14); }
+
+.r-status {
+  display: flex; flex-wrap: wrap; gap: 24px; align-items: center;
+  background: var(--c7); color: var(--c0); padding: 2px 16px;
+  border-top: 2px solid var(--c0);
+}
+.r-grow { flex: 1; }
+
+/* riquadri a doppia linea con ombra, come i menu del BIOS */
+.r-box {
+  position: relative;
+  border: 4px double var(--c15);
+  padding: 20px 16px 12px;
+  margin: 8px 0 24px;
+  background: var(--r-bg);
+  box-shadow: 16px 16px 0 rgba(0, 0, 0, 0.75);
+}
+.r-box-title {
+  position: absolute; top: -10px; left: 16px;
+  padding: 0 8px; background: var(--r-bg); color: var(--c14);
+}
+.r-box.r-err { background: var(--c4); border-color: var(--c15); }
+.r-box.r-err .r-box-title { background: var(--c4); color: var(--c15); }
+.r-box pre { white-space: pre-wrap; margin: 0; }
+
+.r-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 32px; align-items: start; }
+.r-grid-disk { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
+@media (max-width: 900px) { .r-grid, .r-grid-disk { grid-template-columns: 1fr; } }
+
+.r-spec { border-collapse: collapse; width: 100%; }
+.r-spec th { text-align: left; color: var(--c11); font-weight: normal; padding: 2px 16px 2px 0; white-space: nowrap; vertical-align: top; width: 1%; }
+.r-spec td { color: var(--c15); padding: 2px 0; }
+.r-note { color: var(--c7); margin: 12px 0 0; }
+.r-warn { color: var(--c14); background: var(--c4); padding: 4px 8px; }
+
+.r-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px; align-items: center; }
+.r-btn, .r-mini {
+  font: inherit; cursor: pointer;
+  background: var(--c7); color: var(--c0);
+  border: 0; padding: 2px 12px;
+  box-shadow: 8px 8px 0 var(--c0);
+}
+.r-btn:hover, .r-mini:hover { background: var(--c15); }
+.r-btn:active, .r-mini:active { transform: translate(4px, 4px); box-shadow: 4px 4px 0 var(--c0); }
+.r-btn.r-big { background: var(--c2); color: var(--c15); padding: 4px 16px; }
+.r-btn.r-big:hover { background: var(--c10); color: var(--c0); }
+.r-btn.r-danger { background: var(--c4); color: var(--c15); }
+.r-btn.r-danger:hover { background: var(--c12); }
+.r-mini { padding: 0 6px; box-shadow: 4px 4px 0 var(--c0); margin-left: 8px; }
+.r-mini.on { background: var(--c14); }
+
+.r-cost { padding: 0 6px; }
+.r-cost.c0 { background: var(--c2); color: var(--c15); }
+.r-cost.c1 { background: var(--c6); color: var(--c15); }
+.r-cost.c2 { background: var(--c4); color: var(--c15); }
+
+/* campi del pannello CONFIGURA */
+.r-fields { display: grid; gap: 10px; }
+.r-field { display: grid; grid-template-columns: 13em minmax(0, 1fr) auto; gap: 12px; align-items: center; }
+.r-field > span:first-child { color: var(--c11); }
+.r-field select, .r-field input[type=range] {
+  font: inherit; background: var(--c0); color: var(--c15); border: 0; padding: 2px 4px; min-width: 0; width: 100%;
+}
+.r-field select:focus { outline: 2px solid var(--c14); }
+.r-field input[type=range] { accent-color: var(--c14); padding: 0; }
+.r-val { color: var(--c14); min-width: 4em; text-align: right; }
+.r-check { display: flex; gap: 8px; align-items: center; color: var(--c15); cursor: pointer; }
+.r-check input { accent-color: var(--c14); }
+.r-group { color: var(--c14); margin-top: 8px; border-bottom: 1px solid var(--c8); }
+@media (max-width: 700px) { .r-field { grid-template-columns: 1fr; gap: 4px; } }
+
+.r-list { display: grid; gap: 2px; }
+.r-item { padding: 2px 8px; cursor: pointer; color: var(--c15); }
+.r-item b { font-weight: normal; }
+.r-item small { color: var(--c7); font-size: inherit; }
+.r-item:hover { background: var(--c3); color: var(--c0); }
+.r-item.on { background: var(--c7); color: var(--c0); }
+.r-item.on small, .r-item:hover small { color: var(--c1); }
+
+/* esplora-disco */
+.r-path { color: var(--c14); margin-bottom: 8px; }
+.r-files { max-height: 55vh; overflow: auto; background: var(--c1); }
+.r-file { display: grid; grid-template-columns: minmax(7em, 1fr) 6.5em 9em 2.5em; gap: 8px; padding: 0 8px; cursor: default; color: var(--c7); white-space: nowrap; }
+.r-file span { overflow: hidden; text-overflow: clip; }
+.r-file .s, .r-file .a { text-align: right; }
+.r-file.dir { color: var(--c15); }
+.r-file.dir .n::before { content: '\25A0 '; color: var(--c14); }
+.r-file:hover { background: var(--c3); color: var(--c0); }
+.r-file.on { background: var(--c7); color: var(--c0); }
+.r-file-head { color: var(--c11); border-bottom: 1px solid var(--c8); }
+.r-file-head:hover { background: transparent; color: var(--c11); }
+.r-preview .r-box-title { position: static; padding: 0; margin-bottom: 8px; }
+.r-preview { margin-bottom: 24px; }
+.r-text, .r-hex { background: var(--c0); color: var(--c7); padding: 8px; max-height: 50vh; overflow: auto; white-space: pre; margin: 0; }
+.r-editor { width: 100%; height: 60vh; font: 16px/16px var(--r-font); background: var(--c1); color: var(--c15); border: 0; padding: 8px; box-sizing: border-box; resize: vertical; caret-color: var(--c14); }
+
+/* libreria */
+.r-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 520px), 1fr)); gap: 32px; }
+.r-card { display: grid; grid-template-columns: 128px minmax(0, 1fr); gap: 16px; border: 4px double var(--c15); padding: 16px; box-shadow: 16px 16px 0 rgba(0, 0, 0, .75); }
+.r-card h3 { margin: 0; color: var(--c14); font-weight: normal; font-size: 32px; line-height: 32px; }
+.r-card .r-sub { color: var(--c11); margin-top: 8px; }
+.r-card p { color: var(--c15); }
+.r-meta { color: var(--c7); margin-top: 8px; }
+.r-card-cover { width: 128px; height: 160px; background: var(--c5); display: grid; place-items: center; color: var(--c14); font-size: 64px; box-shadow: inset -8px -8px 0 rgba(0, 0, 0, .35); }
+.r-card-cover img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
+@media (max-width: 600px) { .r-card { grid-template-columns: 1fr; } }
+
+/* anteprima CRT */
+.r-crt-preview { background: var(--c0); padding: 16px; border-radius: 12px; }
+.r-crt-preview canvas { display: block; width: 100%; aspect-ratio: 4 / 3; }
+
+/* case in CSS (al posto dell'immagine, se manca) */
+.r-case { display: flex; justify-content: center; margin-bottom: 24px; }
+.r-case img { max-width: 100%; image-rendering: pixelated; }
+.r-case-css {
+  width: 220px; height: 280px; position: relative;
+  background: linear-gradient(90deg, #c8c0a8, #e4dcc4 20%, #d8d0b8 80%, #b8b098);
+  border: 4px solid var(--c0); box-shadow: 16px 16px 0 rgba(0, 0, 0, .6);
+}
+.r-case-css .bay { position: absolute; left: 24px; right: 24px; top: 28px; height: 36px; background: #b0a890; border: 2px solid #807860; }
+.r-case-css .bay.small { top: 80px; left: 60px; right: 60px; height: 22px; }
+.r-case-css .bay.small::after { content: ''; position: absolute; left: 10px; right: 10px; top: 9px; height: 3px; background: #403828; }
+.r-case-css .leds { position: absolute; left: 24px; right: 24px; top: 130px; display: flex; gap: 10px; align-items: center; }
+.r-case-css .led { width: 10px; height: 6px; background: #404040; }
+.r-case-css .led.on { background: var(--c10); box-shadow: 0 0 6px var(--c10); }
+.r-case-css .led.hdd { background: #803000; }
+.r-case-css .mhz { margin-left: auto; background: #200000; color: #ff3030; padding: 2px 6px; text-shadow: 0 0 6px #ff0000; white-space: pre; }
+.r-case-css .btns { position: absolute; left: 24px; right: 24px; top: 170px; display: flex; gap: 12px; }
+.r-case-css .btns span { background: #a09880; color: #403828; padding: 0 6px; border: 2px solid #706850; font-size: 16px; }
+.r-case-css .brand { position: absolute; left: 0; right: 0; bottom: 18px; text-align: center; color: #807860; font-size: 32px; line-height: 32px; letter-spacing: 6px; }
+
+/* schermata di caricamento */
+.r-boot { justify-content: center; align-items: center; padding: 16px; }
+.r-boot .r-box { min-width: min(560px, 92vw); }
+.r-bar { height: 16px; background: var(--c0); margin-top: 16px; }
+.r-bar > div { height: 100%; width: 0; background: var(--c14); transition: width .3s; }
+
+/* --------------------------------------------------- macchina accesa */
+
+.r-machine { height: 100%; display: flex; flex-direction: column; background: #1c1a16; }
+.r-machine-bar {
+  display: flex; align-items: center; gap: 16px; padding: 4px 12px;
+  font: 16px/16px var(--r-font); background: var(--c1); color: var(--c7); border-bottom: 2px solid var(--c0);
+}
+.r-machine-bar * { font-family: inherit; }
+.r-machine-title { color: var(--c15); }
+.r-machine-bar .r-btn { box-shadow: 4px 4px 0 var(--c0); }
+
+/* cornice del monitor: plastica beige, vetro scuro */
+.r-bezel {
+  flex: 1; min-height: 0; display: flex;
+  margin: 12px; padding: 22px 26px 46px;
+  background: linear-gradient(180deg, #ddd5bd, #cfc7ae 60%, #bdb59b);
+  border-radius: 18px;
+  box-shadow: inset 0 2px 0 #f2ecd8, inset 0 -3px 0 #9d957c, 0 10px 30px rgba(0, 0, 0, .6);
+  position: relative;
+}
+.r-bezel::after {
+  content: 'RETRO486  VGA';
+  position: absolute; bottom: 14px; left: 30px;
+  font: 16px/16px var(--r-font); color: #8a826a; letter-spacing: 3px;
+}
+.r-bezel::before {
+  content: ''; position: absolute; bottom: 17px; right: 34px; width: 10px; height: 10px; border-radius: 50%;
+  background: #4cff4c; box-shadow: 0 0 8px #4cff4c;
+}
+.r-machine-host { flex: 1; min-height: 0; display: flex; border-radius: 10px; overflow: hidden; background: #0a0a0a; box-shadow: inset 0 0 0 3px #3a3628, inset 0 0 24px #000; }
+.r-machine-host .main-window { flex: 1; min-height: 0; }
+.r-machine-host .screen-area { position: relative; background: #050505; }
+.crt-canvas { position: absolute; pointer-events: none; image-rendering: auto; }
+.screen-area canvas:not(.crt-canvas) { transition: opacity .2s; }
+
+/* dialoghi di 86Box nel tema: lasciati come in 86Box (Qt), solo i nostri */
+.r-dialog .dialog-body { padding: 0; }
+
+/* CRT di ripiego senza WebGL */
+.crt-css {
+  position: absolute; pointer-events: none; border-radius: 12px;
+  background:
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, .28) 0 1px, transparent 1px 3px),
+    radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, .55) 100%);
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, .7);
+}
+
+.r-grid-conf { grid-template-columns: minmax(18em, 0.7fr) minmax(0, 1.6fr); }
+@media (max-width: 900px) { .r-grid-conf { grid-template-columns: 1fr; } }
+.r-media .r-file { grid-template-columns: minmax(0, 1fr) 6em 5em auto; }
+.r-media .r-file .a { text-align: right; overflow: visible; }
+
+/* --------------------------------------------------- grafica pixel art (app/assets/pixel) */
+.r-pix, .r-pix-s { image-rendering: pixelated; vertical-align: middle; flex: none; }
+.r-pix { width: 24px; height: 24px; margin: -4px 6px -4px 0; }
+.r-pix-s { width: 16px; height: 16px; margin: 0 6px 0 0; image-rendering: auto; }
+.r-tabs button { display: inline-flex; align-items: center; gap: 2px; }
+.r-tabs .r-pix { margin: -2px 4px -2px 0; }
+.r-btn .r-pix { width: 24px; height: 24px; margin: -6px 6px -6px -4px; }
+.r-spec th .r-pix { width: 20px; height: 20px; margin: -3px 6px -3px 0; }
+.r-file.dir .n::before { content: none; }
+.r-file .n { display: flex; align-items: center; }
+
+.r-banner { margin: -16px -16px 24px; border-bottom: 2px solid var(--c0); background: #0c1230; line-height: 0; }
+.r-banner img { width: 100%; max-height: 240px; object-fit: cover; image-rendering: pixelated; display: block; }
+
+.r-case { flex-direction: column; align-items: center; gap: 16px; }
+.r-case-pix { position: relative; width: 332px; max-width: 100%; filter: drop-shadow(16px 16px 0 rgba(0, 0, 0, .6)); }
+.r-case-pix img { width: 100%; display: block; image-rendering: pixelated; }
+.r-case-led {
+  position: absolute; display: flex; align-items: center; justify-content: flex-end;
+  background: #1a0000; color: #ff2a2a; font: 16px/16px var(--r-font); padding: 0 6px; box-sizing: border-box;
+  text-shadow: 0 0 6px #ff0000, 0 0 2px #ff6060; white-space: pre; letter-spacing: 2px;
+}
+.r-periferica { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--c11); }
+.r-periferica img { width: 288px; max-width: 100%; image-rendering: pixelated; filter: drop-shadow(8px 8px 0 rgba(0, 0, 0, .6)); }
+
+.r-card-cover { position: relative; overflow: hidden; }
+.r-card-title {
+  position: absolute; left: 0; right: 0; bottom: 0; padding: 4px; text-align: center;
+  background: rgba(0, 0, 0, .7); color: var(--c14); font-size: 16px; line-height: 16px;
+}
+
+/* cornice del monitor in 9-slice: l'apertura di monitor.png è 17/18/23/20 px dai bordi */
+.r-monitor-frame {
+  border-style: solid;
+  border-width: 34px 36px 46px 40px;
+  border-image: url('../assets/pixel/monitor.png') 17 18 23 20 / 34px 36px 46px 40px stretch;
+  image-rendering: pixelated;
+}
+.r-bezel.r-monitor-frame { background: none; padding: 0; border-radius: 0; box-shadow: none; filter: drop-shadow(0 10px 18px rgba(0, 0, 0, .7)); }
+.r-bezel.r-monitor-frame::before, .r-bezel.r-monitor-frame::after { content: none; }
+.r-bezel.r-monitor-frame .r-machine-host { border-radius: 14px; }
+.r-crt-preview.r-monitor-frame { border-radius: 0; padding: 0; background: #000; }
+
+.r-crt-preview canvas.crt-canvas { position: static; }
+.r-crt-wrap { position: relative; }
+.r-crt-wrap canvas { display: block; width: 100%; aspect-ratio: 4 / 3; border-radius: 12px; image-rendering: pixelated; }
+.r-crt-wrap .crt-css { inset: 0; }

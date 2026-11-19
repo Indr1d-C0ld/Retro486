@@ -1,0 +1,9 @@
+# Sorgenti esterni e build (vedi README: tools/86box, tools/costruisci.sh)
+/vendor/
+/dist/
+# Dati con materiale protetto: MS-DOS, giochi, hard disk, ROM
+/media/
+/data/
+node_modules/
+*.prima-di-*
+/tools/pixellab/uscita/

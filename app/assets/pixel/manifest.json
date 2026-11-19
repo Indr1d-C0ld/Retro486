@@ -1,0 +1,170 @@
+{
+  "power": {
+    "file": "power.png",
+    "width": 48,
+    "height": 48,
+    "descrizione": "beige PC power switch button with red power symbol"
+  },
+  "cpu": {
+    "file": "cpu.png",
+    "width": 48,
+    "height": 48,
+    "descrizione": "486 CPU chip, grey ceramic PGA package with gold pins, top view"
+  },
+  "ram": {
+    "file": "ram.png",
+    "width": 48,
+    "height": 48,
+    "descrizione": "72-pin SIMM memory module, green PCB with black chips"
+  },
+  "video": {
+    "file": "video.png",
+    "width": 48,
+    "height": 48,
+    "descrizione": "rectangular green printed circuit expansion card with black chips, gold edge connector at bottom and metal bracket with blue VGA port on the side, no face, object only"
+  },
+  "sound": {
+    "file": "sound.png",
+    "width": 48,
+    "height": 48,
+    "descrizione": "rectangular green printed circuit expansion card with chips, gold edge connector at bottom and metal bracket with three round audio jacks, no face, object only"
+  },
+  "midi": {
+    "file": "midi.png",
+    "width": 48,
+    "height": 48,
+    "descrizione": "beige synthesizer sound module box with small green LCD display and knobs"
+  },
+  "hdd": {
+    "file": "hdd.png",
+    "width": 48,
+    "height": 48,
+    "descrizione": "3.5 inch IDE hard disk drive, silver metal case, top view"
+  },
+  "floppy": {
+    "file": "floppy.png",
+    "width": 48,
+    "height": 48,
+    "descrizione": "3.5 inch floppy disk, blue with metal shutter and white label"
+  },
+  "cdrom": {
+    "file": "cdrom.png",
+    "width": 48,
+    "height": 48,
+    "descrizione": "CD-ROM compact disc, shiny rainbow reflections"
+  },
+  "crt": {
+    "file": "crt.png",
+    "width": 48,
+    "height": 48,
+    "descrizione": "beige CRT computer monitor, front view, blue screen"
+  },
+  "library": {
+    "file": "library.png",
+    "width": 48,
+    "height": 48,
+    "descrizione": "stack of colorful 1990s computer game boxes"
+  },
+  "bios": {
+    "file": "bios.png",
+    "width": 48,
+    "height": 48,
+    "descrizione": "BIOS EPROM chip with white label and round window"
+  },
+  "keyboard": {
+    "file": "keyboard.png",
+    "width": 48,
+    "height": 48,
+    "descrizione": "beige mechanical PC keyboard, 3/4 view"
+  },
+  "mouse": {
+    "file": "mouse.png",
+    "width": 48,
+    "height": 48,
+    "descrizione": "beige two-button ball mouse with cable"
+  },
+  "folder": {
+    "file": "folder.png",
+    "width": 48,
+    "height": 48,
+    "descrizione": "yellow file folder"
+  },
+  "exe": {
+    "file": "exe.png",
+    "width": 48,
+    "height": 48,
+    "descrizione": "small program window with blue title bar and gear"
+  },
+  "reset": {
+    "file": "reset.png",
+    "width": 48,
+    "height": 48,
+    "descrizione": "small round grey reset push button"
+  },
+  "turbo": {
+    "file": "turbo.png",
+    "width": 48,
+    "height": 48,
+    "descrizione": "turbo push button with glowing red LED"
+  },
+  "save": {
+    "file": "save.png",
+    "width": 48,
+    "height": 48,
+    "descrizione": "blue floppy disk with green arrow pointing up"
+  },
+  "file": {
+    "file": "file.png",
+    "width": 48,
+    "height": 48,
+    "descrizione": "documento (disegnato a mano)"
+  },
+  "case": {
+    "file": "case.png",
+    "width": 166,
+    "height": 256,
+    "descrizione": "beige 1990s 486 desktop tower PC case, front view, two 5.25 inch drive bays, 3.5 inch floppy drive, turbo button, reset button, power button, red two digit 7-segment MHz LED display, isolated on plain solid black background, no text, no logo",
+    "led": {
+      "x": 61,
+      "y": 150,
+      "w": 84,
+      "h": 13
+    }
+  },
+  "monitor": {
+    "file": "monitor.png",
+    "width": 256,
+    "height": 224,
+    "descrizione": "beige 1990s CRT computer monitor, straight front view, thick beige plastic bezel, large completely black empty screen, small green power LED, isolated on plain solid magenta background, no text, no logo",
+    "screen": {
+      "x": 20,
+      "y": 17,
+      "w": 218,
+      "h": 184
+    }
+  },
+  "banner": {
+    "file": "banner.png",
+    "width": 640,
+    "height": 160,
+    "descrizione": "wide night scene of a 1990s computer desk, beige CRT monitor glowing blue MS-DOS screen, beige tower PC, stack of floppy disks, sound card box, coffee mug, desk lamp, dark blue room, no text, no logo"
+  },
+  "logo-chip": {
+    "file": "logo-chip.png",
+    "width": 64,
+    "height": 64,
+    "descrizione": "486 CPU chip emblem, grey ceramic square chip with gold pins all around, glowing yellow core, top view, no text, no logo"
+  },
+  "copertina": {
+    "file": "copertina.png",
+    "width": 128,
+    "height": 160,
+    "descrizione": "generic 1990s PC game big box, front view, colorful abstract adventure artwork, 3.5 inch floppy disk icon on corner, no text, no logo"
+  },
+  "mt32": {
+    "file": "mt32.png",
+    "width": 192,
+    "height": 96,
+    "descrizione": "beige 1987 synthesizer sound module, wide front view, green LCD display, row of grey buttons, volume knob, no text, no logo"
+  }
+}

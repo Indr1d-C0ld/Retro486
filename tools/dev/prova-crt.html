@@ -1,0 +1,20 @@
+<!doctype html><meta charset="utf-8"><title>prova</title>
+<body><pre id="out">in corso</pre>
+<script type="module">
+import { Crt, PRESETS } from '/js/retro/crt.js';
+const out = document.getElementById('out');
+try {
+  const src = document.createElement('canvas'); src.width = 320; src.height = 200;
+  const g = src.getContext('2d'); g.fillStyle = '#0000aa'; g.fillRect(0, 0, 320, 200); g.fillStyle = '#ffff55'; g.fillRect(40, 40, 100, 60);
+  const res = [];
+  for (const [id, p] of Object.entries(PRESETS)) {
+    const crt = new Crt(src, { ...PRESETS.vga14, ...p });
+    crt.canvas.style.width = '640px'; crt.canvas.style.height = '480px'; document.body.append(crt.canvas);
+    crt.draw();
+    const gl = crt.gl; const px = new Uint8Array(4);
+    if (gl) gl.readPixels(320 * (window.devicePixelRatio||1), 240 * (window.devicePixelRatio||1), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    res.push(`${id}: ok=${crt.ok} err=${gl ? gl.getError() : 'no-gl'} centro=${[...px]}`);
+  }
+  out.textContent = 'FATTO\n' + res.join('\n');
+} catch (e) { out.textContent = 'ERRORE ' + e.stack; }
+</script>
