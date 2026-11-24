@@ -1,0 +1,157 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 1152fb673..85509f16c 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -45,7 +45,7 @@ project(86Box
+     HOMEPAGE_URL "https://86box.net"
+     LANGUAGES C CXX)
+ 
+-if (NOT (CMAKE_SIZEOF_VOID_P STREQUAL "8"))
++if (NOT EMSCRIPTEN AND NOT (CMAKE_SIZEOF_VOID_P STREQUAL "8"))
+     message(FATAL_ERROR "Only 64-bit builds are supported.")
+ endif()
+ 
+diff --git a/src/include/86box/machine.h b/src/include/86box/machine.h
+index 31e308737..1303941aa 100644
+--- a/src/include/86box/machine.h
++++ b/src/include/86box/machine.h
+@@ -348,18 +348,18 @@ typedef struct _machine_ {
+     const char            *name;
+     const char            *internal_name;
+     uint32_t               type;
+-    uintptr_t              chipset;
++    uint64_t              chipset;
+     int                  (*init)(const struct _machine_ *);
+     uint8_t              (*p1_handler)(void);
+     uint32_t             (*gpio_handler)(uint8_t write, uint32_t val);
+-    uintptr_t              available_flag;
++    uint64_t              available_flag;
+     uint32_t             (*gpio_acpi_handler)(uint8_t write, uint32_t val);
+     const machine_cpu_t    cpu;
+     /* Boards that stretch I/O cycles beyond the CPU's standard count declare
+      * it here; 0 means use the CPU default. */
+     int                    cpu_io_cycles;
+-    uintptr_t              bus_flags;
+-    uintptr_t              flags;
++    uint64_t              bus_flags;
++    uint64_t              flags;
+     const machine_memory_t ram;
+     int                    ram_granularity;
+     int                    nvrmask;
+@@ -373,19 +373,19 @@ typedef struct _machine_ {
+ #else
+     void                  *kbc_device;
+ #endif /* EMU_DEVICE_H */
+-    uintptr_t              kbc_params;
++    uint64_t              kbc_params;
+ #ifdef EMU_DEVICE_H
+     const device_t        *nvr_device;
+ #else
+     void                  *nvr_device;
+ #endif /* EMU_DEVICE_H */
+-    uintptr_t              nvr_params;
++    uint64_t              nvr_params;
+ #ifdef EMU_DEVICE_H
+     const device_t        *sio_device;
+ #else
+     void                  *sio_device;
+ #endif /* EMU_DEVICE_H */
+-    uintptr_t              sio_params;
++    uint64_t              sio_params;
+     /* Bits 23-16: XOR mask, bits 15-8: OR mask, bits 7-0: AND mask. */
+     uint32_t               kbc_p1;
+     uint32_t               gpio;
+@@ -446,12 +446,12 @@ extern const device_t *machine_get_scsi_device(int m);
+ extern const char *    machine_get_internal_name_ex(int m);
+ extern const char *    machine_get_nvr_name_ex(int m);
+ extern int             machine_get_nvrmask(int m);
+-extern int             machine_has_flags(int m, uintptr_t flags);
+-extern uintptr_t       machine_has_flags_64(int m, uintptr_t flags);
++extern int             machine_has_flags(int m, uint64_t flags);
++extern uint64_t       machine_has_flags_64(int m, uint64_t flags);
+ extern void            machine_set_ps2(void);
+ extern void            machine_force_ps2(int is_ps2);
+-extern int             machine_has_flags_ex(uintptr_t flags);
+-extern int             machine_has_bus(int m, uintptr_t bus_flags);
++extern int             machine_has_flags_ex(uint64_t flags);
++extern int             machine_has_bus(int m, uint64_t bus_flags);
+ extern int             machine_has_cartridge(int m);
+ extern int             machine_has_jumpered_ecp_dma(int m, int dma);
+ extern int             machine_get_default_jumpered_ecp_dma(int m);
+diff --git a/src/machine/machine_table.c b/src/machine/machine_table.c
+index 8037530a2..2b095f2e6 100644
+--- a/src/machine/machine_table.c
++++ b/src/machine/machine_table.c
+@@ -27102,7 +27102,7 @@ machine_get_nvrmask(int m)
+ }
+ 
+ int
+-machine_has_flags(int m, uintptr_t flags)
++machine_has_flags(int m, uint64_t flags)
+ {
+     int ret = machines[m].flags & flags;
+ 
+@@ -27114,10 +27114,10 @@ machine_has_flags(int m, uintptr_t flags)
+     return ret;
+ }
+ 
+-uintptr_t
+-machine_has_flags_64(int m, uintptr_t flags)
++uint64_t
++machine_has_flags_64(int m, uint64_t flags)
+ {
+-    uintptr_t ret = machines[m].flags & flags;
++    uint64_t ret = machines[m].flags & flags;
+ 
+     /* Can't have PS/2 ports with an AT KBC. */
+     if ((flags & MACHINE_PS2_KBC) &&
+@@ -27143,7 +27143,7 @@ machine_force_ps2(int is_ps2)
+ }
+ 
+ int
+-machine_has_flags_ex(uintptr_t flags)
++machine_has_flags_ex(uint64_t flags)
+ {
+     int ret = machine_has_flags(machine, flags);
+ 
+@@ -27158,7 +27158,7 @@ machine_has_flags_ex(uintptr_t flags)
+ }
+ 
+ int
+-machine_has_bus(int m, uintptr_t bus_flags)
++machine_has_bus(int m, uint64_t bus_flags)
+ {
+     int ret = machines[m].bus_flags & bus_flags;
+ 
+diff --git a/src/nvr_at.c b/src/nvr_at.c
+index 3df3e5d35..c4a4db5b7 100644
+--- a/src/nvr_at.c
++++ b/src/nvr_at.c
+@@ -1174,16 +1174,22 @@ nvr_at_init(const device_t *info)
+ 
+     nvr->data           = local;
+ 
++    /* Retro486 (wasm32): i parametri della NVR sono a 64 bit ma info->local e' un
++       puntatore; su un target a 32 bit si rileggono dalla tabella delle macchine. */
++    const uint64_t lp = (machines[machine].nvr_device &&
++                         ((uint32_t) machines[machine].nvr_params == (uint32_t) info->local)) ?
++                            (uint64_t) machines[machine].nvr_params : (uint64_t) info->local;
++
+     /* This is machine specific. */
+-    nvr->size           = (info->local & FLAG_FIXED_SIZE) ? 128 :
++    nvr->size           = (lp & FLAG_FIXED_SIZE) ? 128 :
+                               (machines[machine].nvrmask + 1);
+     local->lock         = (uint8_t *) calloc(1, nvr->size);
+ 
+-    local->flags        = info->local & 0xffff;
+-    local->cent         = (info->local >> 16) & 0xff;
+-    local->default_addr = (info->local >> 24) & 0xffff;
++    local->flags        = lp & 0xffff;
++    local->cent         = (lp >> 16) & 0xff;
++    local->default_addr = (lp >> 24) & 0xffff;
+     local->def          = (local->flags & FLAG_ZERO_DEFAULT) ? 0x00 : 0xff;
+-    nvr->irq            = (info->local >> 40) & 0xff;
++    nvr->irq            = (lp >> 40) & 0xff;
+ 
+     if (nvr->irq == 0x7f)
+         nvr->irq = -1;

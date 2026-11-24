@@ -65,7 +65,7 @@ async function main() {
   loadStato();
   const problemi = [];
   if (!window.crossOriginIsolated) problemi.push('La pagina non è isolata (COOP/COEP): SharedArrayBuffer non è disponibile. Ricarica la pagina; se il problema resta, il server deve inviare le intestazioni Cross-Origin-Opener-Policy e Cross-Origin-Embedder-Policy.');
-  if (!hasMemory64()) problemi.push('Questo browser non supporta WebAssembly a 64 bit (memory64). Usa Chrome, Edge o Firefox recenti (non Safari).');
+  // la build a 32 bit non richiede memory64 (funziona anche in Safari)
   if (!storage.isSupported()) problemi.push('Questo browser non offre l\'Origin Private File System.');
   if (problemi.length) { schermataMessaggio('RETRO486 NON PUO\' PARTIRE', problemi.join('\n\n'), { errore: true }); return; }
 

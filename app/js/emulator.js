@@ -50,7 +50,9 @@ export class Emulator extends EventTarget {
       printErr: (t) => self._log('err', t),
       locateFile: (path) => new URL(path, new URL('../', import.meta.url)).href,
     });
-    this.sharedPtr = Number(this.module._web_get_shared());
+    const shared = this.module._web_get_shared();
+    this.wasm64 = typeof shared === 'bigint'; // Retro486: la build a 32 bit usa puntatori Number
+    this.sharedPtr = Number(shared);
     requestAnimationFrame(this._raf);
   }
 
@@ -76,7 +78,7 @@ export class Emulator extends EventTarget {
     const len = m.lengthBytesUTF8(text) + 1;
     const ptr = Number(m._malloc(len));
     m.stringToUTF8(text, ptr, len);
-    m._web_command(BigInt(ptr)); // wasm64 pointer; ownership passes to C
+    m._web_command(this.wasm64 ? BigInt(ptr) : ptr); // ownership passes to C
   }
 
   start(vmPath) { this.command(`start ${vmPath}`); }
