@@ -1,0 +1,11 @@
+--- a/CMakeLists.txt	2026-11-24 21:45:02.293306122 +0100
++++ b/CMakeLists.txt	2026-11-24 21:45:02.297306179 +0100
+@@ -195,7 +195,7 @@
+ cmake_dependent_option(ISAMEM_RAMPAGE "AST Rampage"                              ON    "DEV_BRANCH"  OFF)
+ cmake_dependent_option(ISAMEM_IAB     "Intel Above Board"                        ON    "DEV_BRANCH"  OFF)
+ cmake_dependent_option(ISAMEM_BRAT    "BocaRAM/AT"                               ON    "DEV_BRANCH"  OFF)
+-cmake_dependent_option(OPL4ML         "OPL4-ML daughterboard"                    ON    "DEV_BRANCH"  OFF)
++option(OPL4ML                         "OPL4-ML daughterboard"                    ON) # Retro486: sintetizzatore General MIDI senza DEV_BRANCH
+ cmake_dependent_option(SIO_DETECT     "Super I/O Detection Helper"               ON    "DEV_BRANCH"  OFF)
+ cmake_dependent_option(WACOM          "Wacom Input Devices"                      ON    "DEV_BRANCH"  OFF)
+ cmake_dependent_option(XL24           "ATI VGA Wonder XL24 (ATI-28800-6)"        ON    "DEV_BRANCH"  OFF)

@@ -19,6 +19,8 @@ dischi, profili e supporti.
 - [La macchina emulata](#la-macchina-emulata)
 - [Joystick e pad](#joystick-e-pad)
 - [Aggiungere giochi dal portale](#aggiungere-giochi-dal-portale)
+- [General MIDI](#general-midi)
+- [Durante il gioco](#durante-il-gioco)
 - [L'hard disk C:](#lhard-disk-c)
 - [Il monitor CRT](#il-monitor-crt)
 - [Velocità, onestamente](#velocità-onestamente)
@@ -122,6 +124,29 @@ da quelle di serie, e si modificano o tolgono dalla loro card. I file del gioco 
 del disco di quel browser: per averli sugli altri dispositivi va salvato il disco sul server da
 HARD DISK. Limiti: ZIP senza password, niente ZIP64, la configurazione audio del gioco (il suo
 SETUP o INSTALL) si fa una volta dentro MS-DOS.
+
+## General MIDI
+
+Oltre al Roland MT-32, il campo *Sintetizzatore MIDI* di CONFIGURA offre un sintetizzatore **General
+MIDI**: la scheda figlia Yamaha OPL4-ML di 86Box (wavetable, ROM `yrw801.rom`), per i giochi dal 1993
+in poi che vogliono un General MIDI sulla MPU-401 a 330h. È il sintetizzatore dei profili «Gaming Rig
+1994» e «Top di gamma 1995»; il 486 di riferimento resta con l'MT-32. In 86Box è un dispositivo del
+ramo di sviluppo: `tools/86box/patch/0003-opl4ml.patch` lo abilita nella nostra build.
+
+`tools/dev/prova-midi.mjs` lo verifica: `MIDITEST.COM` suona un accordo sulla MPU-401 e la pagina
+misura il livello dell'uscita audio. Senza sintetizzatore il livello resta a zero, con l'MT-32 sale a
+0,17 e con l'OPL4-ML a 0,05. La misura dice che suona, non come suona: la resa degli strumenti va
+giudicata a orecchio. I giochi della libreria con partitura per MT-32 (Larry 3) con un sintetizzatore
+General MIDI usano il driver AdLib.
+
+## Durante il gioco
+
+Nella barra sopra il monitor: **Rumori** (accensione, ventola, testine dell'hard disk, floppy e CD,
+sintetizzati nel browser e guidati dall'attività reale delle unità), **Solo schermo** (nasconde menu e
+barre di 86Box, lo schermo resta 4:3), **CRT** e **Schermo intero**.
+
+In HARD DISK si possono trascinare file e cartelle dal computer sull'elenco per copiarli su C:, e
+*Scarica ZIP* scarica una cartella intera, per esempio i salvataggi di un gioco.
 
 ## L'hard disk C:
 

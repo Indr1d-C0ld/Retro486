@@ -20,15 +20,15 @@ export const PREDEFINITI = [
   },
   {
     id: 'dx2-66', nome: 'Gaming Rig 1994', anno: 1994,
-    descrizione: 'DX2-66 su VLB con S3 Trio64: il PC di Doom. In tempo reale con il ricompilatore dinamico.',
+    descrizione: 'DX2-66 su VLB con S3 Trio64 e sintetizzatore General MIDI: il PC di Doom. In tempo reale con il ricompilatore dinamico.',
     hw: { machine: 'vli486sv2g', cpu_family: 'i486dx2', cpu_speed: 66666666, jit: true, ram: 16, video: 's3_trio64_vlb',
-      sound: 'sb16', midi: 'mt32', mpu: true, mouse: 'ps2', fdd_a: '35_2hd', fdd_b: 'none', cdrom: true },
+      sound: 'sb16', midi: 'opl4-ml', mpu: true, mouse: 'ps2', fdd_a: '35_2hd', fdd_b: 'none', cdrom: true },
   },
   {
     id: 'dx4-100', nome: 'Top di gamma 1995', anno: 1995,
     descrizione: 'Intel DX4 a 100 MHz, 32 MB: il massimo del Socket 3. Richiede il ricompilatore dinamico.',
     hw: { machine: 'vli486sv2g', cpu_family: 'idx4', cpu_speed: 100000000, jit: true, ram: 32, video: 's3_trio64_vlb',
-      sound: 'sb16', midi: 'mt32', mpu: true, mouse: 'ps2', fdd_a: '35_2hd', fdd_b: 'none', cdrom: true },
+      sound: 'sb16', midi: 'opl4-ml', mpu: true, mouse: 'ps2', fdd_a: '35_2hd', fdd_b: 'none', cdrom: true },
   },
   {
     id: 'sx25', nome: 'PC economico 1991', anno: 1991,

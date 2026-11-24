@@ -286,7 +286,7 @@ async function pannelloConfigura() {
         sel('Memoria RAM', hw.ram, rams.map((r) => [r, `${r} MB`]), (v) => { hw.ram = Number(v); ridisegna(); }),
         sel('Scheda video', hw.video, [['internal', '(integrata nella scheda madre)'], ...devs('video')], (v) => { hw.video = v; ridisegna(); }),
         sel('Scheda audio', hw.sound, [['none', 'Nessuna'], ...devs('sound')], (v) => { hw.sound = v; ridisegna(); }),
-        sel('Sintetizzatore MIDI', hw.midi, cat.midi_out.filter((d) => d.a).map((d) => [d.i, d.i === 'none' ? 'Nessuno' : d.n]), (v) => { hw.midi = v; if (v !== 'none' && hw.mpu === false && !/^sb16|^sbawe/.test(hw.sound)) hw.mpu = true; ridisegna(); }),
+        sel('Sintetizzatore MIDI', hw.midi, cat.midi_out.filter((d) => d.a).map((d) => [d.i, d.i === 'none' ? 'Nessuno' : d.i === 'opl4-ml' ? 'General MIDI (Yamaha OPL4-ML, wavetable)' : d.n]), (v) => { hw.midi = v; if (v !== 'none' && hw.mpu === false && !/^sb16|^sbawe/.test(hw.sound)) hw.mpu = true; ridisegna(); }),
         h('label.r-field', null, h('span', null, 'Interfaccia MIDI'), h('label.r-check', null,
           h('input', { type: 'checkbox', checked: !!hw.mpu, onchange: (e) => { hw.mpu = e.target.checked; ridisegna(); } }),
           ' Roland MPU-401 a 330h (modalità intelligente, per i giochi Sierra e MT-32)')),

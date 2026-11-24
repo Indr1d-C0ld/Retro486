@@ -86,7 +86,7 @@ export async function preparaAvvio({ voce = null, profilo = null } = {}) {
   if (voce) {
     v.writeFile(path, avvioBat(voce, profilo));
     // driver audio del gioco in base alla scheda MIDI del profilo
-    const scelta = voce.audio && (profilo?.hw?.midi && profilo.hw.midi !== 'none' ? voce.audio.mt32 : voce.audio.adlib);
+    const scelta = voce.audio && (/^(mt32|cm32)/.test(profilo?.hw?.midi || '') ? voce.audio.mt32 : voce.audio.adlib); // un sintetizzatore General MIDI non suona le partiture per MT-32
     if (scelta) {
       const f = `${voce.cartella.replace(/^C:/i, '')}\\${scelta.file}`;
       if (v.exists(f)) {
