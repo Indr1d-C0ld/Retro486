@@ -21,10 +21,16 @@ const FLOPPY_SIZES = [
 ];
 
 function loadPrefs() {
-  try { return { ...defaults(), ...JSON.parse(localStorage.getItem(PREFS_KEY) || '{}') }; } catch (e) { return defaults(); }
+  try {
+    const p = { ...defaults(), ...JSON.parse(localStorage.getItem(PREFS_KEY) || '{}') };
+    // Retro486: un monitor CRT è 4:3. Le preferenze salvate prima di questa scelta passano una volta a 4:3;
+    // poi il menu View resta libero di cambiarle.
+    if (!p.crt43) { p.force43 = true; p.fsMode = '43'; p.crt43 = 1; }
+    return p;
+  } catch (e) { return defaults(); }
 }
 function defaults() {
-  return { hideToolbar: false, hideStatusbar: false, fit: true, scale: 1, force43: false, filter: 'nearest', fsMode: 'keep', hidpi: true };
+  return { hideToolbar: false, hideStatusbar: false, fit: true, scale: 1, force43: true, filter: 'nearest', fsMode: '43', hidpi: true, crt43: 1 };
 }
 
 export class MainWindow {

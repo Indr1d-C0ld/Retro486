@@ -294,6 +294,18 @@ body { background: var(--c0); }
 .r-bezel.r-monitor-frame .r-machine-host { border-radius: 14px; }
 .r-crt-preview.r-monitor-frame { border-radius: 0; padding: 0; background: #000; }
 
+/* Il monitor è un CRT 4:3 anche su uno schermo largo: il palco occupa lo spazio, la cornice prende la misura
+   più grande che ci sta lasciando allo schermo (area interna meno menu e barre di 86Box, --cromo) il rapporto 4:3.
+   76px e 80px sono i bordi orizzontali e verticali della cornice, 24px il margine. */
+.r-stage { flex: 1; min-height: 0; min-width: 0; container-type: size; display: grid; place-items: center; overflow: hidden; }
+.r-stage > .r-bezel {
+  --cromo: 84px;
+  --w: max(320px, min(100cqw - 24px, (100cqh - 24px - 80px - var(--cromo)) * 4 / 3 + 76px));
+  flex: none; margin: 0; box-sizing: border-box;
+  width: var(--w);
+  height: calc((var(--w) - 76px) * 3 / 4 + 80px + var(--cromo));
+}
+
 .r-crt-preview canvas.crt-canvas { position: static; }
 .r-crt-wrap { position: relative; }
 .r-crt-wrap canvas { display: block; width: 100%; aspect-ratio: 4 / 3; border-radius: 12px; image-rendering: pixelated; }

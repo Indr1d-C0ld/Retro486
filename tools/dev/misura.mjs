@@ -3,6 +3,7 @@
 //   node tools/dev/misura.mjs [url] [secondi di attesa] [secondi di misura]
 //   VARIANTI='[{"nome":"jit","hw":{"jit":true},"crt":false}]'  varianti (hw sovrascrive i campi del profilo)
 //   FOTO=cartella   salva uno screenshot all'inizio e alla fine della misura (FOTO_SERIE=4,8,12: anche a quei secondi dall'avvio)
+//   FINESTRA=2560,1080   dimensione della finestra del browser
 //   JITPARAM=soglia,min_istruzioni,max_chiamate   parametri del ricompilatore (build JIT)
 import { spawn } from 'node:child_process';
 import fs from 'node:fs'; import os from 'node:os'; import path from 'node:path';
@@ -23,7 +24,7 @@ for (const [n, v] of VARIANTI.entries()) {
   const PORT = 9340 + n;
   const prof = fs.mkdtempSync(path.join(os.tmpdir(), 'r486-m-'));
   const chrome = spawn('chromium', ['--headless=new', '--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist',
-    `--remote-debugging-port=${PORT}`, `--user-data-dir=${prof}`, '--window-size=1280,800', '--autoplay-policy=no-user-gesture-required', 'about:blank'], { stdio: 'ignore' });
+    `--remote-debugging-port=${PORT}`, `--user-data-dir=${prof}`, `--window-size=${process.env.FINESTRA || '1280,800'}`, '--autoplay-policy=no-user-gesture-required', 'about:blank'], { stdio: 'ignore' });
   let ws, id = 0; const pend = new Map();
   try {
     for (let i = 0; i < 50 && !ws; i++) { try { const l = await (await fetch(`http://127.0.0.1:${PORT}/json`)).json(); const p = l.find((t) => t.type === 'page' && t.url === 'about:blank'); if (p) ws = new WebSocket(p.webSocketDebuggerUrl); } catch {} if (!ws) await sleep(200); }

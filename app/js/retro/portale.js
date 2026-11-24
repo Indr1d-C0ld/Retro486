@@ -685,7 +685,9 @@ function macchina(p, voce) {
       if (await confirm('Spegnere il PC e tornare al portale? Il disco resta come lo ha lasciato MS-DOS: meglio uscire dai programmi prima.', { title: 'Retro486', yes: 'Spegni', no: 'Annulla' })) app.emu.command('power_off');
     }));
   const bezel = h('div.r-bezel.r-monitor-frame', null, host);
-  root.replaceChildren(h('div.r-machine', null, barra, bezel));
+  // il monitor resta 4:3 qualunque sia la finestra: il palco lo centra e gli dà la misura (vedi .r-stage)
+  const palco = h('div.r-stage', null, bezel);
+  root.replaceChildren(h('div.r-machine', null, barra, palco));
 
   const win = new MainWindow({
     root: host, emu: app.emu, vm: P.VM, catalog: app.catalog,
@@ -715,6 +717,11 @@ function macchina(p, voce) {
     win.canvas.style.borderRadius = vuole && !crt.ok ? '12px' : '';
     posiziona();
   };
+  // altezza di menu, barra strumenti e barra di stato di 86Box: serve al CSS perché lo schermo, non la finestra, sia 4:3
+  const cromo = () => { const c = host.clientHeight - win.screen.clientHeight; if (c >= 0) palco.style.setProperty('--cromo', `${c}px`); };
+  new ResizeObserver(cromo).observe(host);
+  new ResizeObserver(cromo).observe(win.screen);
+  cromo();
   new ResizeObserver(posiziona).observe(win.canvas);
   new ResizeObserver(posiziona).observe(win.screen);
   app.emu.addEventListener('frame', () => { if (!crt.canvas.hidden) crt.draw(); });
