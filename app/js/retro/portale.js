@@ -513,7 +513,11 @@ async function pannelloDisco() {
         n++;
       } catch (er) { errori.push(`${rel}: ${er.message}`); }
     }
-    // Trascinare file o cartelle dal computer sull'elenco li copia nella cartella aperta.
+    aggiorna();
+    messageBox({ title: 'COPY', kind: errori.length ? 'warning' : 'info', text: `${n} file copiati in C:${cwd}.${errori.length ? `\n\nNon copiati:\n${errori.slice(0, 12).join('\n')}` : ''}\n\nPremi "Salva modifiche sul disco" per scriverli sull'hard disk.` });
+  };
+
+  // Trascinare file o cartelle dal computer sull'elenco li copia nella cartella aperta.
   const daVoce = (voce, rel = '') => new Promise((res) => {
     if (voce.isFile) voce.file((f) => { Object.defineProperty(f, 'webkitRelativePath', { value: rel + f.name }); res([f]); }, () => res([]));
     else if (voce.isDirectory) {
@@ -534,10 +538,6 @@ async function pannelloDisco() {
     const files = voci.length ? (await Promise.all(voci.map((x) => daVoce(x)))).flat() : [...ev.dataTransfer.files];
     await caricaFile(files, true);
   });
-
-  aggiorna();
-    messageBox({ title: 'COPY', kind: errori.length ? 'warning' : 'info', text: `${n} file copiati in C:${cwd}.${errori.length ? `\n\nNon copiati:\n${errori.slice(0, 12).join('\n')}` : ''}\n\nPremi "Salva modifiche sul disco" per scriverli sull'hard disk.` });
-  };
 
   aggiorna();
   const info = S.infoLocale();
