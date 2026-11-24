@@ -112,7 +112,7 @@ export function cfgPerProfilo(catalog, profilo, { hddPath, cdromImage = '' } = {
   ini.set('Machine', 'cpu_family', cpu.family);
   ini.set('Machine', 'cpu_speed', String(cpu.speed));
   ini.set('Machine', 'cpu_multi', String(cpu.multi));
-  ini.set('Machine', 'cpu_use_dynarec', '0');
+  ini.set('Machine', 'cpu_use_dynarec', hw.jit ? '1' : '0'); // ricompilatore dinamico (backend WebAssembly)
   const fpu = cpu.fpus.find((f) => f[1] === 'internal') || cpu.fpus[0];
   ini.set('Machine', 'fpu_type', hw.fpu || (fpu ? fpu[1] : 'none'));
   ini.set('Machine', 'mem_size', String(hw.ram * 1024));
@@ -165,6 +165,7 @@ export function profiloDaCfg(catalog, base, cfgText) {
     machine: g('Machine', 'machine', base.hw.machine),
     cpu_family: g('Machine', 'cpu_family', base.hw.cpu_family),
     cpu_speed: Number(g('Machine', 'cpu_speed', base.hw.cpu_speed)),
+    jit: g('Machine', 'cpu_use_dynarec', base.hw.jit ? '1' : '0') === '1',
     fpu: g('Machine', 'fpu_type', ''),
     ram: Math.round(Number(g('Machine', 'mem_size', base.hw.ram * 1024)) / 1024),
     video: g('Video', 'gfxcard', base.hw.video),
@@ -177,7 +178,7 @@ export function profiloDaCfg(catalog, base, cfgText) {
     cdrom: !g('Floppy and CD-ROM drives', 'cdrom_01_parameters', '0, none').startsWith('0'),
   };
   // Tutto il resto (sezioni dei dispositivi, opzioni avanzate) resta in extra.
-  for (const [s, k] of [['Machine', 'machine'], ['Machine', 'cpu_family'], ['Machine', 'cpu_speed'], ['Machine', 'cpu_multi'],
+  for (const [s, k] of [['Machine', 'machine'], ['Machine', 'cpu_family'], ['Machine', 'cpu_speed'], ['Machine', 'cpu_multi'], ['Machine', 'cpu_use_dynarec'],
     ['Machine', 'mem_size'], ['Video', 'gfxcard'], ['Sound', 'sndcard'], ['Sound', 'midi_device'], ['Sound', 'mpu401_standalone'],
     ['Hard disks', 'hdd_01_fn'], ['Hard disks', 'hdd_01_parameters'], ['Hard disks', 'hdd_01_ide_channel'],
     ['Floppy and CD-ROM drives', 'fdd_01_fn'], ['Floppy and CD-ROM drives', 'fdd_02_fn'], ['Floppy and CD-ROM drives', 'cdrom_01_image_path']]) {

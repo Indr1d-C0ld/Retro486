@@ -1,0 +1,197 @@
+diff --git a/src/codegen/CMakeLists.txt b/src/codegen/CMakeLists.txt
+index 76005ed4d..b895e2520 100644
+--- a/src/codegen/CMakeLists.txt
++++ b/src/codegen/CMakeLists.txt
+@@ -47,7 +47,15 @@ if(DYNAREC)
+         codegen_reg.c
+     )
+ 
+-    if(ARCH STREQUAL "x86_64")
++    if(EMSCRIPTEN)
++        # WebAssembly: compiled blocks are runtime-generated wasm modules
++        target_sources(dynarec PRIVATE
++            codegen_backend_wasm.c
++            codegen_backend_wasm_uops.c
++            wasm-emit.c
++        )
++        target_link_options(86Box PRIVATE -sALLOW_TABLE_GROWTH=1)
++    elseif(ARCH STREQUAL "x86_64")
+         target_sources(dynarec PRIVATE
+             codegen_backend_x86-64.c
+             codegen_backend_x86-64_ops.c
+diff --git a/src/codegen/codegen.c b/src/codegen/codegen.c
+index 957a75c49..6ed2ca034 100644
+--- a/src/codegen/codegen.c
++++ b/src/codegen/codegen.c
+@@ -1094,6 +1094,9 @@ codegen_skip:
+         uop_MOV_PTR(ir, IREG_ea_seg, (void *) op_ea_seg);
+     if (op_ssegs != last_op_ssegs)
+         uop_MOV_IMM(ir, IREG_ssegs, op_ssegs);
++#ifdef __EMSCRIPTEN__
++    wjit_call_insns++; /* an instruction left to the interpreter: cost model input */
++#endif
+     uop_CALL_INSTRUCTION_FUNC(ir, op, fetchdat);
+     /*An interpreted x87 or 0F instruction can undo what the block took as
+       done (FNINIT, FRSTOR, FXRSTOR and FEMMS empty the tags and leave MMX
+diff --git a/src/codegen/codegen.h b/src/codegen/codegen.h
+index b29b8c35b..a228ae458 100644
+--- a/src/codegen/codegen.h
++++ b/src/codegen/codegen.h
+@@ -67,6 +67,12 @@ typedef struct codeblock_t {
+     /*Run since eviction's sweep last passed it: the sweep passes it over
+       once (codegen_delete_random_block).*/
+     uint8_t used;
++#ifdef __EMSCRIPTEN__
++    /*Visits while not compiled. A runtime WebAssembly.Module compile is far
++      dearer than a native block emit, so a block is interpreted until it has
++      proven hot (386_dynarec.c, wjit_compile_threshold).*/
++    uint32_t wasm_hits;
++#endif
+ } codeblock_t;
+ 
+ extern codeblock_t *codeblock;
+@@ -93,6 +99,12 @@ extern uint8_t *block_write_data;
+ /*Code block is not inlining immediate parameters, parameters must be fetched from memory*/
+ #define CODEBLOCK_NO_IMMEDIATES 0x80
+ 
++#ifdef __EMSCRIPTEN__
++/*WebAssembly backend: not worth compiling, or not compilable; interpreted
++  until the block is deleted (codegen_backend_wasm.c)*/
++#define CODEBLOCK_WASM_NOJIT 0x100
++#endif
++
+ #define BLOCK_PC_INVALID        0xffffffff
+ 
+ #define BLOCK_INVALID           0
+diff --git a/src/codegen/codegen_allocator.c b/src/codegen/codegen_allocator.c
+index 1558bb8d5..8516e8014 100644
+--- a/src/codegen/codegen_allocator.c
++++ b/src/codegen/codegen_allocator.c
+@@ -194,6 +194,9 @@ block_allocate:
+     }
+ 
+     codegen_allocator_usage++;
++#ifdef __EMSCRIPTEN__
++    codegen_wasm_mem_alloc(&mem_block_alloc[block->offset]);
++#endif
+     return block;
+ }
+ void
+@@ -208,6 +211,9 @@ codegen_allocator_free(mem_block_t *block)
+     while (1) {
+         int next_block_nr = block->next;
+         codegen_allocator_usage--;
++#ifdef __EMSCRIPTEN__
++        codegen_wasm_mem_free(&mem_block_alloc[block->offset]);
++#endif
+ 
+         block->next         = mem_block_free_list;
+         block->code_block   = BLOCK_INVALID;
+@@ -233,6 +239,9 @@ codegen_allocator_free_version(mem_block_t *block)
+     while (1) {
+         int next_block_nr = block->next;
+         codegen_allocator_usage--;
++#ifdef __EMSCRIPTEN__
++        codegen_wasm_mem_free(&mem_block_alloc[block->offset]);
++#endif
+ 
+         block->next         = mem_block_free_list;
+         block->code_block   = BLOCK_INVALID;
+diff --git a/src/codegen/codegen_allocator.h b/src/codegen/codegen_allocator.h
+index 0659787e7..7ef87adfc 100644
+--- a/src/codegen/codegen_allocator.h
++++ b/src/codegen/codegen_allocator.h
+@@ -22,6 +22,11 @@
+ /* Two for each of BLOCK_SIZE's blocks: running out of these deletes every
+    block at once. */
+ #define MEM_BLOCK_NR 262144
++#elif defined __EMSCRIPTEN__
++/* Compiled code is in runtime wasm modules: a block's memory only holds its
++   table slot, and never grows past its first mem block. Two per code block,
++   for the kept versions; the pool comes out of the wasm heap. */
++#define MEM_BLOCK_NR 32768
+ #elif defined __aarch64__ || defined _M_ARM64
+ /* 131072 for code plus the 128 that hold veneers (MEM_BLOCK_VENEER_STRIDE),
+    so the code memory runs out, and deletes every block, at the points it
+diff --git a/src/codegen/codegen_backend.h b/src/codegen/codegen_backend.h
+index 655ae971b..e2210bfee 100644
+--- a/src/codegen/codegen_backend.h
++++ b/src/codegen/codegen_backend.h
+@@ -7,6 +7,8 @@
+ #    include "codegen_backend_arm64.h"
+ #elif defined __loongarch_lp64
+ #    include "codegen_backend_loongarch64.h"
++#elif defined __EMSCRIPTEN__
++#    include "codegen_backend_wasm.h"
+ #else
+ #    error New dynamic recompiler not implemented on your platform
+ #endif
+diff --git a/src/codegen/codegen_block.c b/src/codegen/codegen_block.c
+index 83e445e0b..47b3e8906 100644
+--- a/src/codegen/codegen_block.c
++++ b/src/codegen/codegen_block.c
+@@ -871,6 +871,9 @@ codegen_block_init(uint32_t phys_addr)
+     block->page_mask = block->page_mask2 = 0;
+     block->flags                         = CODEBLOCK_STATIC_TOP;
+     block->status                        = cpu_cur_status;
++#ifdef __EMSCRIPTEN__
++    block->wasm_hits = 0; /* must prove hot before a wasm module is compiled for it */
++#endif
+ #ifdef CODEGEN_BACKEND_HAS_BLOCK_LINK
+     codegen_link_block_changed(block);
+ #endif
+@@ -957,6 +960,9 @@ codegen_block_start_recompile(codeblock_t *block)
+ 
+     block->TOP = cpu_state.TOP & 7;
+     block->flags |= CODEBLOCK_WAS_RECOMPILED;
++#ifdef __EMSCRIPTEN__
++    wjit_call_insns = 0;
++#endif
+ 
+     codegen_flat_ds = !(cpu_cur_status & CPU_STATUS_NOTFLATDS);
+     codegen_flat_ss = !(cpu_cur_status & CPU_STATUS_NOTFLATSS);
+diff --git a/src/cpu/386_dynarec.c b/src/cpu/386_dynarec.c
+index 5b8448fbc..74b548fa6 100644
+--- a/src/cpu/386_dynarec.c
++++ b/src/cpu/386_dynarec.c
+@@ -707,6 +707,13 @@ exec386_dynarec_dyn(void)
+             codegen_block_restore_version(block);
+     }
+ 
++#    ifdef __EMSCRIPTEN__
++    /* A kept version put back whose module was never built (the block was
++       not worth compiling): there is nothing to run. */
++    if (valid_block && (block->flags & CODEBLOCK_WAS_RECOMPILED) && !codegen_wasm_block_fn(block->data))
++        block->flags = (block->flags & ~CODEBLOCK_WAS_RECOMPILED) | CODEBLOCK_WASM_NOJIT;
++#    endif
++
+     if (valid_block && (block->flags & CODEBLOCK_WAS_RECOMPILED))
+     {
+ #    ifdef CODEGEN_BACKEND_HAS_BLOCK_LINK
+@@ -715,6 +722,12 @@ exec386_dynarec_dyn(void)
+         /* from may predate the reset that turned linking off. */
+         if ((from != NULL) && codegen_block_link)
+             codegen_link_patch(from, block, phys_addr);
++#    elif defined(__EMSCRIPTEN__)
++        /* The compiled block is a wasm function in this thread's function
++           table; its index is a C function pointer value. */
++        void (*code)(void) = (void (*)(void)) (uintptr_t) codegen_wasm_block_fn(block->data);
++
++        wjit_stat_runs++;
+ #    else
+         void (*code)(void) = (void *) &block->data[BLOCK_START];
+ #    endif
+@@ -738,6 +751,13 @@ exec386_dynarec_dyn(void)
+ #    endif
+         if (x86_was_reset)
+             codegen_reset();
++#    ifdef __EMSCRIPTEN__
++    } else if (valid_block && !cpu_state.abrt && ((block->flags & CODEBLOCK_WASM_NOJIT) || (++block->wasm_hits < (uint32_t) wjit_compile_threshold))) {
++        /* Not hot enough yet to pay for a WebAssembly.Module compile, or not
++           worth compiling at all: interpreted, with no recording. */
++        wjit_stat_cold_runs++;
++        exec386_dynarec_int();
++#    endif
+     } else if (valid_block && !cpu_state.abrt) {
+         start_pc                 = cs + cpu_state.pc;
+         const int max_block_size = (block->flags & CODEBLOCK_BYTE_MASK) ? ((128 - 25) - (start_pc & 0x3f)) : 1000;
