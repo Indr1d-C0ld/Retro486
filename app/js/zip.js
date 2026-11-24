@@ -44,3 +44,38 @@ export function readZip(buffer) {
   }
   return out;
 }
+
+// ---- scrittura ----------------------------------------------------------------
+
+const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(b) { let c = 0xffffffff; for (let i = 0; i < b.length; i++) c = CRC[(c ^ b[i]) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; }
+
+// Crea un archivio ZIP senza compressione da [{ name: 'DIR/FILE.EXT', data: Uint8Array, mtime?: Date }].
+export function writeZip(files) {
+  const enc = new TextEncoder();
+  const parti = [], centrale = [];
+  let pos = 0;
+  for (const f of files) {
+    const nome = enc.encode(f.name);
+    const d = f.mtime instanceof Date && !isNaN(f.mtime) ? f.mtime : new Date();
+    const ora = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1);
+    const giorno = ((Math.max(1980, d.getFullYear()) - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+    const crc = crc32(f.data);
+    const comune = new Uint8Array(26); // da "version needed" alla lunghezza del campo extra
+    const v = new DataView(comune.buffer);
+    v.setUint16(0, 20, true); v.setUint16(2, 0x800, true); v.setUint16(4, 0, true); v.setUint16(6, ora, true); v.setUint16(8, giorno, true);
+    v.setUint32(10, crc, true); v.setUint32(14, f.data.length, true); v.setUint32(18, f.data.length, true); v.setUint16(22, nome.length, true); v.setUint16(24, 0, true);
+    const locale = new Uint8Array(30 + nome.length);
+    new DataView(locale.buffer).setUint32(0, 0x04034b50, true); locale.set(comune, 4); locale.set(nome, 30);
+    const c = new Uint8Array(46 + nome.length);
+    const cv = new DataView(c.buffer);
+    cv.setUint32(0, 0x02014b50, true); cv.setUint16(4, 20, true); c.set(comune, 6); cv.setUint32(42, pos, true); c.set(nome, 46);
+    parti.push(locale, f.data); centrale.push(c);
+    pos += locale.length + f.data.length;
+  }
+  const dimC = centrale.reduce((a, x) => a + x.length, 0);
+  const fine = new Uint8Array(22);
+  const fv = new DataView(fine.buffer);
+  fv.setUint32(0, 0x06054b50, true); fv.setUint16(8, files.length, true); fv.setUint16(10, files.length, true); fv.setUint32(12, dimC, true); fv.setUint32(16, pos, true);
+  return new Blob([...parti, ...centrale, fine], { type: 'application/zip' });
+}

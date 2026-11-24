@@ -22,7 +22,8 @@ import { decode437, encode437, sanitizeName, ATTR } from '../fat.js';
 import * as P from './profili.js';
 import * as S from './server.js';
 import { Disco, preparaAvvio } from './disco.js';
-import { readZip } from '../zip.js';
+import { readZip, writeZip } from '../zip.js';
+import { Rumori } from './rumori.js';
 import { creaCrt, PARAMS, PRESETS, loadCrtSettings, saveCrtSettings } from './crt.js';
 
 const root = document.getElementById('app');
@@ -460,6 +461,15 @@ async function pannelloDisco() {
       }),
       e && !e.isDir ? pulsante('Modifica', () => modifica(join(cwd, selezione))) : null,
       e && !e.isDir ? pulsante('Scarica', () => downloadBlob(new Blob([v.readFile(join(cwd, selezione))]), selezione)) : null,
+      (e && e.isDir) || (!e && cwd !== '\\') ? pulsante('Scarica ZIP', () => {
+        const base = e ? join(cwd, selezione) : cwd;
+        const file = [];
+        const visita = (dir, rel) => { for (const x of v.list(dir)) { const p = join(dir, x.name); if (x.isDir) visita(p, `${rel}${x.name}/`); else file.push({ name: `${rel}${x.name}`, data: v.readFile(p), mtime: x.mtime }); } };
+        const nome = base.split('\\').pop();
+        visita(base, `${nome}/`);
+        if (!file.length) return messageBox({ title: 'Retro486', text: 'La cartella è vuota.' });
+        downloadBlob(writeZip(file), `${nome}.zip`);
+      }) : null,
       e ? pulsante('Rinomina', async () => {
         const n = await prompt('Nuovo nome:', selezione, { title: 'REN' });
         if (!n) return;
@@ -503,7 +513,29 @@ async function pannelloDisco() {
         n++;
       } catch (er) { errori.push(`${rel}: ${er.message}`); }
     }
-    aggiorna();
+    // Trascinare file o cartelle dal computer sull'elenco li copia nella cartella aperta.
+  const daVoce = (voce, rel = '') => new Promise((res) => {
+    if (voce.isFile) voce.file((f) => { Object.defineProperty(f, 'webkitRelativePath', { value: rel + f.name }); res([f]); }, () => res([]));
+    else if (voce.isDirectory) {
+      const r = voce.createReader(); const tutti = [];
+      const leggi = () => r.readEntries(async (voci) => {
+        if (!voci.length) return res((await Promise.all(tutti)).flat());
+        for (const x of voci) tutti.push(daVoce(x, `${rel}${voce.name}/`));
+        leggi();
+      }, () => res([]));
+      leggi();
+    } else res([]);
+  });
+  lista.addEventListener('dragover', (ev) => { ev.preventDefault(); ev.dataTransfer.dropEffect = 'copy'; lista.classList.add('r-drop'); });
+  lista.addEventListener('dragleave', () => lista.classList.remove('r-drop'));
+  lista.addEventListener('drop', async (ev) => {
+    ev.preventDefault(); lista.classList.remove('r-drop');
+    const voci = [...(ev.dataTransfer.items || [])].map((i) => i.webkitGetAsEntry?.()).filter(Boolean);
+    const files = voci.length ? (await Promise.all(voci.map((x) => daVoce(x)))).flat() : [...ev.dataTransfer.files];
+    await caricaFile(files, true);
+  });
+
+  aggiorna();
     messageBox({ title: 'COPY', kind: errori.length ? 'warning' : 'info', text: `${n} file copiati in C:${cwd}.${errori.length ? `\n\nNon copiati:\n${errori.slice(0, 12).join('\n')}` : ''}\n\nPremi "Salva modifiche sul disco" per scriverli sull'hard disk.` });
   };
 
@@ -870,12 +902,16 @@ async function accendi({ voce = null, hwTemp = null } = {}) {
 
 function macchina(p, voce) {
   document.onkeydown = null;
+  let rumori = null;
   const host = h('div.r-machine-host');
   const barra = h('div.r-machine-bar', null,
     h('span.r-logo.small', null, 'RETRO', h('b', null, '486')),
     h('span.r-machine-title', null, `${p.nome}${voce ? ` · ${voce.titolo}` : ''}`),
     h('span.r-grow'),
+    h('label.r-check', { title: 'Ventola, hard disk, floppy e CD-ROM' }, h('input', { type: 'checkbox', checked: !!app.stato.rumori, onchange: (e) => { app.stato.rumori = e.target.checked; saveStato(); rumori.imposta({ attivo: e.target.checked }); } }), ' Rumori'),
+    h('label.r-check', { title: 'Nasconde menu e barre di 86Box: resta solo lo schermo' }, h('input', { type: 'checkbox', checked: !!app.stato.soloSchermo, onchange: (e) => { app.stato.soloSchermo = e.target.checked; saveStato(); host.classList.toggle('solo', e.target.checked); } }), ' Solo schermo'),
     h('label.r-check', null, h('input', { type: 'checkbox', checked: app.crt.enabled !== false, onchange: (e) => { app.crt.enabled = e.target.checked; saveCrtSettings(app.crt); applicaCrt(); } }), ' CRT'),
+    pulsante('Schermo intero', () => app.window.fullscreen()),
     pulsante('Torna al portale', async () => {
       if (await confirm('Spegnere il PC e tornare al portale? Il disco resta come lo ha lasciato MS-DOS: meglio uscire dai programmi prima.', { title: 'Retro486', yes: 'Spegni', no: 'Annulla' })) app.emu.command('power_off');
     }));
@@ -889,6 +925,9 @@ function macchina(p, voce) {
     onExit: () => { location.href = location.pathname; },
   });
   app.window = win;
+  host.classList.toggle('solo', !!app.stato.soloSchermo);
+  rumori = new Rumori(app.emu, win, { volume: app.stato.rumoriVolume ?? 0.5 });
+  if (app.stato.rumori) rumori.accendi();
 
   // monitor CRT sovrapposto al canvas di 86Box
   const crt = creaCrt(win.canvas, app.crt);

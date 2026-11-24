@@ -297,9 +297,8 @@ body { background: var(--c0); }
 /* Il monitor è un CRT 4:3 anche su uno schermo largo: il palco occupa lo spazio, la cornice prende la misura
    più grande che ci sta lasciando allo schermo (area interna meno menu e barre di 86Box, --cromo) il rapporto 4:3.
    76px e 80px sono i bordi orizzontali e verticali della cornice, 24px il margine. */
-.r-stage { flex: 1; min-height: 0; min-width: 0; container-type: size; display: grid; place-items: center; overflow: hidden; }
+.r-stage { --cromo: 84px; flex: 1; min-height: 0; min-width: 0; container-type: size; display: grid; place-items: center; overflow: hidden; }
 .r-stage > .r-bezel {
-  --cromo: 84px;
   --w: max(320px, min(100cqw - 24px, (100cqh - 24px - 80px - var(--cromo)) * 4 / 3 + 76px));
   flex: none; margin: 0; box-sizing: border-box;
   width: var(--w);
@@ -313,3 +312,8 @@ body { background: var(--c0); }
 
 /* cattura del mouse senza blocco del puntatore: si nasconde quello del sistema */
 .screen-area canvas.soft-capture { cursor: none; }
+
+/* macchina accesa, «solo schermo»: spariscono menu, barra degli strumenti e barra di stato di 86Box */
+.r-machine-host.solo .main-window > :not(.screen-area) { display: none; }
+/* HARD DISK: bersaglio del trascinamento di file dal computer */
+.r-files.r-drop { outline: 2px dashed var(--c14); outline-offset: 4px; }

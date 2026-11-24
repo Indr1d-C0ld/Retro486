@@ -4,6 +4,7 @@
 //   VARIANTI='[{"nome":"jit","hw":{"jit":true},"crt":false}]'  varianti (hw sovrascrive i campi del profilo)
 //   FOTO=cartella   salva uno screenshot all'inizio e alla fine della misura (FOTO_SERIE=4,8,12: anche a quei secondi dall'avvio)
 //   FINESTRA=2560,1080   dimensione della finestra del browser
+//   STATO='{"soloSchermo":true,"rumori":true}'   preferenze del portale per la prova
 //   JITPARAM=soglia,min_istruzioni,max_chiamate   parametri del ricompilatore (build JIT)
 import { spawn } from 'node:child_process';
 import fs from 'node:fs'; import os from 'node:os'; import path from 'node:path';
@@ -37,7 +38,7 @@ for (const [n, v] of VARIANTI.entries()) {
     console.error('connesso'); await cdp('Page.enable'); if (LOG) await cdp('Runtime.enable'); console.error('page.enable');
     await cdp('Page.navigate', { url: URL0 });
     for (let i = 0; i < 120; i++) { if (await js('!!(window.retro486 && retro486.catalog && retro486.mostra)')) break; await sleep(500); }
-    await js(`(() => { const p = retro486.profili.find((x) => x.id === 'dx33'); Object.assign(p.hw, ${JSON.stringify(v.hw)}); retro486.stato.profilo = 'dx33'; retro486.crt.enabled = ${v.crt}; })()`);
+    await js(`(() => { const p = retro486.profili.find((x) => x.id === 'dx33'); Object.assign(p.hw, ${JSON.stringify(v.hw)}); retro486.stato.profilo = 'dx33'; retro486.crt.enabled = ${v.crt}; Object.assign(retro486.stato, ${process.env.STATO || '{}'}); })()`);
     console.error('portale pronto'); await js(`retro486.mostra('libreria')`); await sleep(9000); console.error('libreria');
     await js(`[...document.querySelectorAll('button')].find((b) => b.textContent.includes('Avvia'))?.click()`);
     const jp = v.jitparam || JITPARAM; // per variante: "jitparam":"16,6,0"
