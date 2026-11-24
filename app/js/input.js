@@ -265,7 +265,14 @@ export class Input {
       if (!p) continue;
       let mask = 0;
       p.buttons.forEach((b, j) => { if (b.pressed && j < 31) mask |= 1 << j; });
-      this.emu.joystick(i, p.axes, mask);
+      // Croce direzionale (pulsanti 12-15 della mappatura standard): vale come la leva, per i pad senza stick.
+      const axes = [...p.axes];
+      if (p.mapping === 'standard') {
+        const b = (j) => !!p.buttons[j]?.pressed;
+        if (b(14)) axes[0] = -1; else if (b(15)) axes[0] = 1;
+        if (b(12)) axes[1] = -1; else if (b(13)) axes[1] = 1;
+      }
+      this.emu.joystick(i, axes, mask);
     }
   }
 }

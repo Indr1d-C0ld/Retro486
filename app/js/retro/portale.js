@@ -237,6 +237,14 @@ function caseCss(p) {
 
 // ---------------------------------------------------------------- CONFIGURA
 
+// I joystick più usati dai giochi DOS, in cima all'elenco di CONFIGURA (gli altri di 86Box seguono).
+const JOYSTICK = [['2axis_2button', 'Joystick a 2 pulsanti'], ['2axis_4button', 'Joystick a 4 pulsanti'], ['gravis_gamepad', 'Gravis GamePad'],
+  ['4button_gamepad', 'Gamepad a 4 pulsanti'], ['ch_flightstick_pro', 'CH Flightstick Pro'], ['thrustmaster_fcs', 'Thrustmaster FCS'], ['sidewinder_pad', 'Microsoft SideWinder Pad']];
+function padCollegati() {
+  const n = [...(navigator.getGamepads?.() || [])].filter(Boolean).length;
+  return n ? `${n} pad collegat${n === 1 ? 'o' : 'i'}` : 'premi un pulsante del pad';
+}
+
 async function pannelloConfigura() {
   const cat = app.catalog;
   const wrap = h('div.r-grid.r-grid-conf');
@@ -281,6 +289,9 @@ async function pannelloConfigura() {
           h('input', { type: 'checkbox', checked: !!hw.mpu, onchange: (e) => { hw.mpu = e.target.checked; ridisegna(); } }),
           ' Roland MPU-401 a 330h (modalità intelligente, per i giochi Sierra e MT-32)')),
         sel('Mouse', hw.mouse, cat.mouse.filter((d) => d.a !== 0).map((d) => [d.i, d.n]), (v) => { hw.mouse = v; ridisegna(); }),
+        sel('Joystick', hw.joystick || 'none', [['none', 'Nessuno'], ...JOYSTICK.filter(([i]) => cat.joysticks.some((j) => j.i === i)),
+          ...cat.joysticks.filter((j) => j.i !== 'none' && !JOYSTICK.some(([i]) => i === j.i)).map((j) => [j.i, j.n])], (v) => { hw.joystick = v; ridisegna(); },
+          h('span.r-cost.c0', { title: 'I pad compaiono al browser dopo la pressione di un pulsante' }, padCollegati())),
         sel('Floppy A:', hw.fdd_a, [['35_2hd', '3½" 1,44 MB'], ['35_2dd', '3½" 720 KB'], ['525_2hd', '5¼" 1,2 MB'], ['525_2dd', '5¼" 360 KB'], ['35_2ed', '3½" 2,88 MB']], (v) => { hw.fdd_a = v; ridisegna(); }),
         sel('Floppy B:', hw.fdd_b, [['none', 'Nessuno'], ['525_2hd', '5¼" 1,2 MB'], ['35_2hd', '3½" 1,44 MB'], ['525_2dd', '5¼" 360 KB']], (v) => { hw.fdd_b = v; ridisegna(); }),
         h('label.r-field', null, h('span', null, 'CD-ROM'), h('label.r-check', null,

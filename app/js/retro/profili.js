@@ -126,6 +126,14 @@ export function cfgPerProfilo(catalog, profilo, { hddPath, cdromImage = '' } = {
   ini.set('Video', 'gfxcard', hw.video || 'internal');
   ini.set('Input devices', 'mouse_type', hw.mouse || 'ps2');
   ini.set('Input devices', 'keyboard_type', 'keyboard_ps2');
+  // Joystick sulla porta giochi: il primo pad visto dal browser diventa il joystick 1.
+  // I tipi a due joystick (es. due pad a 2 pulsanti) prendono anche il secondo pad.
+  const joy = hw.joystick && hw.joystick !== 'none' ? hw.joystick : 'none';
+  ini.set('Input devices', 'joystick_type', joy);
+  if (joy !== 'none') {
+    const quanti = Math.max(1, Math.min(4, Number(catalog.joysticks?.find((j) => j.i === joy)?.max) || 1));
+    for (let j = 0; j < quanti; j++) if (!ini.has('Input devices', `joystick_${j}_nr`)) ini.set('Input devices', `joystick_${j}_nr`, String(j + 1));
+  }
 
   ini.set('Sound', 'sndcard', hw.sound || 'none');
   ini.set('Sound', 'midi_device', hw.midi || 'none');
@@ -136,6 +144,8 @@ export function cfgPerProfilo(catalog, profilo, { hddPath, cdromImage = '' } = {
   if (sb && /^sb16|^sbawe/.test(hw.sound)) {
     ini.set(deviceSection(sb, 1), 'base401', hw.mpu ? '0' : '816');
   }
+  // La porta giochi (200h) è quella della Sound Blaster: accesa solo se c'è un joystick.
+  if (sb && /^sb|^ess|^adgold/.test(hw.sound || '')) ini.set(deviceSection(sb, 1), 'gameport', joy !== 'none' ? '1' : '0');
 
   // Controller e unità
   if (!ini.has('Storage controllers', 'hdc_1')) {
@@ -179,6 +189,7 @@ export function profiloDaCfg(catalog, base, cfgText) {
     midi: g('Sound', 'midi_device', base.hw.midi),
     mpu: g('Sound', 'mpu401_standalone', '0') === '1',
     mouse: g('Input devices', 'mouse_type', base.hw.mouse),
+    joystick: g('Input devices', 'joystick_type', base.hw.joystick || 'none'),
     fdd_a: g('Floppy and CD-ROM drives', 'fdd_01_type', base.hw.fdd_a),
     fdd_b: g('Floppy and CD-ROM drives', 'fdd_02_type', base.hw.fdd_b),
     cdrom: !g('Floppy and CD-ROM drives', 'cdrom_01_parameters', '0, none').startsWith('0'),
@@ -206,6 +217,7 @@ export function riassunto(catalog, p) {
     ['VIDEO', nome('video', hw.video)],
     ['AUDIO', nome('sound', hw.sound)],
     ['MIDI', hw.midi && hw.midi !== 'none' ? `${nome('midi_out', hw.midi)}${hw.mpu ? ' · MPU-401 Roland' : ''}` : '—'],
+    ...(hw.joystick && hw.joystick !== 'none' ? [['JOYSTICK', catalog?.joysticks?.find((j) => j.i === hw.joystick)?.n || hw.joystick]] : []),
     ['DISCHI', `C: ${Math.round(HDD.spt * HDD.heads * HDD.cyl * 512 / 1048576)} MB IDE${hw.cdrom ? ' · D: CD-ROM' : ''} · A: ${floppyName(hw.fdd_a)}${hw.fdd_b && hw.fdd_b !== 'none' ? ` · B: ${floppyName(hw.fdd_b)}` : ''}`],
   ];
 }
