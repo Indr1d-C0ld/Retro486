@@ -32,7 +32,7 @@ $versione = leggi_json(__DIR__ . '/../version.json', []);
 rispondi([
     'versione' => isset($versione['version']) ? "v{$versione['version']} ({$versione['commit']})" : '',
     'dischi' => $dischi,
-    'libreria' => leggi_json(DATI . '/libreria.json', ['voci' => []])['voci'] ?? [],
+    'libreria' => array_merge(leggi_json(DATI . '/libreria.json', ['voci' => []])['voci'] ?? [], leggi_json(DATI . '/libreria-utente.json', [])),
     'profili' => leggi_json(DATI . '/profili.json', []),
     'media' => $media,
     'nvr' => $nvr,

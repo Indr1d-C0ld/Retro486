@@ -15,6 +15,6 @@ if ($m === 'DELETE') {
 }
 $tmp = ricevi_corpo($dir, 900 << 20);
 rename($tmp, "$dir/$nome");
-if (!empty($_GET['etichetta'])) $etichette[$nome] = mb_substr((string) $_GET['etichetta'], 0, 80);
+if (!empty($_GET['etichetta'])) $etichette[$nome] = taglia((string) $_GET['etichetta'], 80);
 json_atomico("$dir/etichette.json", $etichette);
 rispondi(['ok' => true, 'file' => $nome]);

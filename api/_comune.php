@@ -63,6 +63,12 @@ function ricevi_corpo(string $dir, int $max): string {
     return $tmp;
 }
 
+// Taglia una stringa UTF-8 a $max caratteri (anche dove manca l'estensione mbstring).
+function taglia(string $s, int $max): string {
+    if (function_exists('mb_substr')) return mb_substr($s, 0, $max);
+    return preg_match('/^.{0,' . $max . '}/us', $s, $m) ? $m[0] : substr($s, 0, $max);
+}
+
 function json_atomico(string $file, $dati): void {
     $tmp = $file . '.tmp';
     file_put_contents($tmp, json_encode($dati, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) . "\n");

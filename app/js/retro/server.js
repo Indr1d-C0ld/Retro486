@@ -27,6 +27,14 @@ export async function salvaProfili(profili) {
   return json(`${API}profili.php`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Retro486': '1' }, body: JSON.stringify(profili) });
 }
 
+// Le voci della libreria aggiunte dal portale (quelle con utente: true).
+export async function salvaLibreriaUtente(voci) {
+  return json(`${API}libreria.php`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Retro486': '1' }, body: JSON.stringify(voci) });
+}
+export async function caricaCopertina(id, file) {
+  return json(`${API}libreria.php?copertina=${encodeURIComponent(id)}`, { method: 'PUT', headers: { 'X-Retro486': '1' }, body: file });
+}
+
 // ---- hard disk ----------------------------------------------------------------
 
 const LOCALE = 'retro486.disco'; // { nome, server: mtime della copia scaricata, modificato: bool }

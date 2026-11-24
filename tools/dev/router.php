@@ -14,7 +14,7 @@ if ($file && is_dir($file)) $file = realpath($file . '/index.html');
 if (!$file || !is_file($file)) { http_response_code(404); echo "404 $uri"; return true; }
 
 $tipi = ['html' => 'text/html; charset=utf-8', 'js' => 'text/javascript', 'mjs' => 'text/javascript', 'css' => 'text/css',
-  'wasm' => 'application/wasm', 'json' => 'application/json', 'svg' => 'image/svg+xml', 'png' => 'image/png', 'ico' => 'image/x-icon',
+  'wasm' => 'application/wasm', 'json' => 'application/json', 'svg' => 'image/svg+xml', 'png' => 'image/png', 'jpg' => 'image/jpeg', 'webp' => 'image/webp', 'gif' => 'image/gif', 'ico' => 'image/x-icon',
   'woff' => 'font/woff', 'gz' => 'application/octet-stream', 'txt' => 'text/plain; charset=utf-8'];
 $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
 header('Content-Type: ' . ($tipi[$ext] ?? 'application/octet-stream'));

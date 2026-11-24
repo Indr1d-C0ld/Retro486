@@ -17,6 +17,8 @@ dischi, profili e supporti.
 - [Immagini](#immagini)
 - [Il portale, sezione per sezione](#il-portale-sezione-per-sezione)
 - [La macchina emulata](#la-macchina-emulata)
+- [Joystick e pad](#joystick-e-pad)
+- [Aggiungere giochi dal portale](#aggiungere-giochi-dal-portale)
 - [L'hard disk C:](#lhard-disk-c)
 - [Il monitor CRT](#il-monitor-crt)
 - [Velocità, onestamente](#velocità-onestamente)
@@ -35,7 +37,7 @@ dischi, profili e supporti.
 | **Macchina di riferimento** | ASUS VL/I-486SV2GX4 (SiS 471, VLB, Award BIOS 4.51G) · Intel i486DX-33 · 8 MB · S3 86c805 VLB · Sound Blaster 16 · Roland MT-32 su MPU-401 |
 | **Configurabile** | 64 CPU reali per questa scheda (Intel, AMD, Cyrix: dal 486SX-20 al 5x86-160 e al Pentium OverDrive), ogni scheda madre 486 di 86Box con BIOS disponibile, RAM, video, audio, MIDI, mouse, floppy, CD-ROM, e il dialogo completo delle impostazioni di 86Box |
 | **Sistema** | MS-DOS 6.22 italiano, menu di avvio XMS+EMS / XMS / minimo, CD-ROM su D:, mouse, tastiera italiana, `BLASTER` impostato |
-| **Giochi** | Libreria con avvio diretto; per ora Leisure Suit Larry 3 nella traduzione italiana di [melchior-larry3](https://github.com/Indr1d-C0ld/leisure-suit-larry-3-ita) |
+| **Giochi** | Libreria con avvio diretto, giochi aggiunti dal portale da un archivio ZIP; di serie Leisure Suit Larry 3 nella traduzione italiana di [melchior-larry3](https://github.com/Indr1d-C0ld/leisure-suit-larry-3-ita) |
 | **Monitor** | CRT in WebGL2 (curvatura, scanline, maschera dei fosfori, bloom, persistenza...) con ripiego su Canvas 2D senza GPU |
 | **Server** | Apache + PHP 8.4 su Balthasar: hard disk compresso (6,5 MB), profili, CMOS, floppy e CD; Basic Auth |
 | **Browser** | Chrome, Edge, Firefox recenti (serve memory64: Safari no) |
@@ -93,6 +95,33 @@ Profili predefiniti:
 | Top di gamma 1995 | iDX4-100, 32 MB, S3 Trio64, SB16, MT-32 | tempo reale (JIT) |
 | PC economico 1991 | i486SX-25, 4 MB, ET4000, SB Pro 2 | tempo reale (interprete) |
 | Postazione Windows 3.11 | i486DX2-66, 16 MB, S3 Trio64, SB16 | esigente (interprete) |
+
+## Joystick e pad
+
+In **CONFIGURA** la voce *Joystick* monta un joystick sulla porta giochi del PC (quella della Sound
+Blaster, a 200h): joystick a 2 o 4 pulsanti, Gravis GamePad, CH Flightstick Pro, Thrustmaster FCS,
+SideWinder Pad e gli altri tipi di 86Box. Il primo pad che il browser vede diventa il joystick 1; i
+browser mostrano un pad solo dopo la pressione di un suo pulsante. Leva sinistra e croce direzionale
+muovono entrambe gli assi X e Y, i pulsanti passano nell'ordine della mappatura standard (A, B, X, Y).
+
+`tools/dev/prova-joystick.mjs` lo verifica nella macchina emulata: `JOYTEST.COM` legge la porta 201h
+come farebbe un gioco, mentre un pad finto passa da riposo a sinistra + pulsante 1 a destra-basso +
+pulsante 2. Senza joystick la porta non risponde; con il joystick i tre stati si leggono distinti.
+Non è stato ancora provato con un pad fisico né dentro un gioco commerciale.
+
+## Aggiungere giochi dal portale
+
+In **LIBRERIA**, *Aggiungi un gioco...* prende un archivio ZIP con i file del gioco, lo scompatta nel
+browser e lo copia in `C:\GIOCHI\<CARTELLA>` scrivendo direttamente il file system FAT16 del disco
+(i nomi lunghi diventano 8.3). Si scelgono titolo, programma da avviare con eventuali argomenti,
+anno, editore, genere, profilo consigliato, note e una copertina. Senza ZIP si può creare la scheda
+di una cartella già presente in `C:\GIOCHI`, per esempio di un gioco installato da floppy o CD.
+
+Le schede aggiunte così stanno sul server in `dati/libreria-utente.json` (`api/libreria.php`), a parte
+da quelle di serie, e si modificano o tolgono dalla loro card. I file del gioco finiscono nella copia
+del disco di quel browser: per averli sugli altri dispositivi va salvato il disco sul server da
+HARD DISK. Limiti: ZIP senza password, niente ZIP64, la configurazione audio del gioco (il suo
+SETUP o INSTALL) si fa una volta dentro MS-DOS.
 
 ## L'hard disk C:
 

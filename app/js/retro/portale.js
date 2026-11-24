@@ -22,6 +22,7 @@ import { decode437, encode437, sanitizeName, ATTR } from '../fat.js';
 import * as P from './profili.js';
 import * as S from './server.js';
 import { Disco, preparaAvvio } from './disco.js';
+import { readZip } from '../zip.js';
 import { creaCrt, PARAMS, PRESETS, loadCrtSettings, saveCrtSettings } from './crt.js';
 
 const root = document.getElementById('app');
@@ -552,8 +553,10 @@ async function pannelloLibreria() {
     }
   } catch (e) { console.warn(e); }
 
-  if (!voci.length) return riquadro('LIBRERIA', h('p', null, 'La libreria è vuota o il server non risponde.'));
-  return h('div.r-cards', null, ...voci.map((x) => {
+  const barra = h('div.r-actions', { style: { marginBottom: '24px' } },
+    pulsante([pix('library'), 'Aggiungi un gioco...'], () => schedaGioco(), '.r-big'),
+    h('span.r-note', null, 'Da un archivio ZIP con i file del gioco, o da una cartella già presente in C:\\GIOCHI.'));
+  const carte = h('div.r-cards', null, ...voci.map((x) => {
     const consigliato = app.profili.find((p) => p.id === x.profilo);
     const inst = installati ? installati.has(x.id) : null;
     return h('article.r-card', null,
@@ -566,8 +569,189 @@ async function pannelloLibreria() {
         h('div.r-actions', null,
           pulsante([pix('power'), 'Avvia'], () => accendi({ voce: x }), '.r-big'),
           consigliato && consigliato.id !== app.stato.profilo ? pulsante(`Avvia con "${consigliato.nome}"`, () => { app.stato.profilo = consigliato.id; saveStato(); accendi({ voce: x }); }) : null,
-          pulsante('Apri cartella', () => { app.stato.cwd = x.cartella.replace(/^C:/i, ''); saveStato(); app.mostra('disco'); }))));
+          pulsante('Apri cartella', () => { app.stato.cwd = x.cartella.replace(/^C:/i, ''); saveStato(); app.mostra('disco'); }),
+          x.utente ? pulsante('Modifica', () => schedaGioco(x)) : null,
+          x.utente ? pulsante('Rimuovi', () => rimuoviGioco(x), '.r-danger') : null)));
   }));
+  return h('div', null, barra, voci.length ? carte : riquadro('LIBRERIA', h('p', null, 'La libreria è vuota o il server non risponde.')));
+}
+
+// Le voci aggiunte dal portale stanno sul server in dati/libreria-utente.json.
+async function salvaLibreria() {
+  await S.salvaLibreriaUtente((app.srv.libreria || []).filter((x) => x.utente));
+}
+
+// Nomi 8.3 per un albero di file con nomi qualsiasi: { 'DIR\\FILE.EXT': voce dello ZIP }.
+function albero83(file) {
+  const dirs = new Map(); // percorso originale -> { nome83, presi }
+  dirs.set('', { p: '', presi: new Set() });
+  const out = {};
+  for (const f of file) {
+    const parti = f.rel.split('/').filter(Boolean);
+    let chiave = '';
+    for (const [i, seg] of parti.entries()) {
+      const d = dirs.get(chiave);
+      const ultima = i === parti.length - 1;
+      const sotto = `${chiave}/${seg}`;
+      if (!ultima && dirs.has(sotto)) { chiave = sotto; continue; }
+      const n = sanitizeName(seg, d.presi);
+      d.presi.add(n);
+      const p = d.p ? `${d.p}\\${n}` : n;
+      if (ultima) out[p] = f; else { dirs.set(sotto, { p, presi: new Set() }); chiave = sotto; }
+    }
+  }
+  return out;
+}
+
+// Aggiunge un gioco (da un archivio ZIP o da una cartella già presente su C:) o ne modifica la scheda.
+async function schedaGioco(voce = null) {
+  if (!(await assicuraDisco())) return;
+  if (!app.disco) app.disco = await Disco.apri();
+  const v = app.disco.vol;
+  const nuovo = !voce;
+  let zip = null;          // { nome, file: [{ rel, size, read }] }
+  let copertina = null;    // File
+  let copiato = false;     // i file dello ZIP sono già su C: (se il server poi non risponde si riprova senza ricopiare)
+  const campo = (val = '', attr = {}) => h('input', { type: 'text', value: val ?? '', ...attr });
+  const titolo = campo(voce?.titolo, { maxLength: 80 });
+  const sottotitolo = campo(voce?.sottotitolo, { maxLength: 160 });
+  const editore = campo(voce?.editore, { maxLength: 60 });
+  const anno = h('input', { type: 'number', min: 1975, max: 2100, value: voce?.anno ?? '' });
+  const genere = campo(voce?.genere, { maxLength: 40 });
+  const cartella = campo(voce ? voce.cartella.replace(/^C:\\GIOCHI\\/i, '') : '', { maxLength: 8, style: { textTransform: 'uppercase' }, disabled: !nuovo });
+  const avvio = h('select');
+  const argomenti = campo(voce ? voce.avvio.split(' ').slice(1).join(' ') : '', { maxLength: 60, placeholder: '(facoltativi)' });
+  const profiloSel = h('select', null, h('option', { value: '' }, '(quello selezionato)'), ...app.profili.map((p) => h('option', { value: p.id, selected: voce?.profilo === p.id }, p.nome)));
+  const note = h('textarea', { rows: 3, maxLength: 600, style: { width: '100%' } }, voce?.note || '');
+  const statoZip = h('span.muted', null, nuovo ? 'nessun archivio: userò una cartella già presente in C:\\GIOCHI' : '');
+  const statoCop = h('span.muted', null, voce?.copertina ? voce.copertina : 'copertina predefinita');
+  const errore = h('div', { style: { color: '#c00000', minHeight: '1.3em' } });
+
+  const eseguibili = () => {
+    let nomi = [];
+    if (zip) nomi = Object.keys(albero83(zip.file)).filter((n) => !n.includes('\\'));
+    else { const d = `\\GIOCHI\\${cartella.value.toUpperCase()}`; if (cartella.value && v.exists(d)) nomi = v.list(d).filter((e) => !e.isDir).map((e) => e.name); }
+    nomi = nomi.filter((n) => /\.(EXE|COM|BAT)$/.test(n));
+    const peso = (n) => (/^(SETUP|INSTALL|CONFIG|SETSOUND|SOUND|README|UNINSTAL)/.test(n) ? 2 : /\.BAT$/.test(n) ? 1 : 0);
+    nomi.sort((a, b) => peso(a) - peso(b) || a.localeCompare(b));
+    const attuale = voce?.avvio.split(' ')[0] || avvio.value;
+    avvio.replaceChildren(...nomi.map((n) => h('option', { value: n, selected: n === attuale }, n)));
+  };
+  cartella.addEventListener('input', eseguibili);
+
+  const scegliZip = async () => {
+    const [f] = await pickFiles({ accept: '.zip,application/zip' });
+    if (!f) return;
+    try {
+      let file = readZip(await f.arrayBuffer()).map((e) => ({ ...e, rel: e.name }));
+      // una sola cartella in cima all'archivio: si entra dentro
+      const cime = new Set(file.map((e) => e.rel.split('/')[0]));
+      if (cime.size === 1 && file.every((e) => e.rel.includes('/'))) file = file.map((e) => ({ ...e, rel: e.rel.slice(e.rel.indexOf('/') + 1) }));
+      if (!file.length) throw new Error('archivio vuoto');
+      zip = { nome: f.name, file };
+      const byte = file.reduce((a, e) => a + e.size, 0);
+      statoZip.textContent = `${f.name}: ${file.length} file, ${formatSize(byte)} (liberi su C: ${formatSize(v.freeBytes)})`;
+      const base = f.name.replace(/\.zip$/i, '');
+      if (!cartella.value) cartella.value = sanitizeName(base).split('.')[0];
+      if (!titolo.value) titolo.value = base.replace(/[_.]+/g, ' ');
+      errore.textContent = '';
+      eseguibili();
+    } catch (e) { zip = null; errore.textContent = `Archivio non leggibile: ${e.message}`; }
+  };
+  const scegliCopertina = async () => {
+    const [f] = await pickFiles({ accept: 'image/png,image/jpeg,image/webp,image/gif' });
+    if (!f) return;
+    if (f.size > 2 << 20) { errore.textContent = 'Copertina oltre 2 MB'; return; }
+    copertina = f; statoCop.textContent = f.name;
+  };
+  eseguibili();
+
+  const riga = (et, ...el) => [h('label', null, et), h('div.span2', null, ...el)];
+  const conferma = async () => {
+    errore.textContent = '';
+    const dir = cartella.value.toUpperCase();
+    if (!titolo.value.trim()) { errore.textContent = 'Manca il titolo'; return false; }
+    if (!/^[A-Z0-9_-]{1,8}$/.test(dir)) { errore.textContent = 'Cartella: da 1 a 8 lettere, cifre, _ o -'; return false; }
+    const percorso = `\\GIOCHI\\${dir}`;
+    if (nuovo && zip && !copiato && v.exists(percorso)) { errore.textContent = `C:${percorso} esiste già: scegli un altro nome di cartella`; return false; }
+    if (nuovo && !zip && !v.exists(percorso)) { errore.textContent = `C:${percorso} non esiste: scegli un archivio ZIP o una cartella presente`; return false; }
+    if (!avvio.value) { errore.textContent = 'Nessun programma (.EXE, .COM, .BAT) nella cartella del gioco'; return false; }
+    if (!/^[ -~]*$/.test(argomenti.value)) { errore.textContent = 'Argomenti: solo caratteri ASCII'; return false; }
+    const x = voce || { id: `u${Date.now().toString(36)}`, utente: true };
+    if (nuovo && zip && !copiato) {
+      const byte = zip.file.reduce((a, e) => a + e.size, 0);
+      if (byte + zip.file.length * v.clusterBytes > v.freeBytes) { errore.textContent = `Spazio insufficiente su C: servono ${formatSize(byte)}, liberi ${formatSize(v.freeBytes)}`; return false; }
+      const pd = progressDialog('Retro486', 'Copio il gioco sull\'hard disk...');
+      try {
+        const tree = albero83(zip.file);
+        const nomi = Object.keys(tree);
+        v.mkdirp(percorso);
+        for (const [i, n] of nomi.entries()) {
+          pd.update(i / nomi.length, `${n} (${i + 1} di ${nomi.length})`);
+          v.writeTree(percorso, { [n]: await tree[n].read() });
+        }
+        pd.update(1, 'Scrivo sul disco...');
+        await app.disco.salva();
+        copiato = true; cartella.disabled = true;
+      } catch (e) {
+        try { if (v.exists(percorso)) v.remove(percorso, { recursive: true }); await app.disco.salva(); } catch (e2) { console.warn(e2); }
+        errore.textContent = `Copia non riuscita: ${e.message}`;
+        return false;
+      } finally { pd.close(); }
+    }
+    Object.assign(x, { titolo: titolo.value.trim(), sottotitolo: sottotitolo.value.trim(), editore: editore.value.trim(), genere: genere.value.trim(),
+      anno: Number(anno.value) || undefined, cartella: `C:${percorso}`, avvio: `${avvio.value}${argomenti.value.trim() ? ` ${argomenti.value.trim()}` : ''}`,
+      profilo: profiloSel.value || undefined, note: note.value.trim() });
+    for (const k of Object.keys(x)) if (x[k] === '' || x[k] === undefined) delete x[k];
+    try {
+      if (copertina) x.copertina = (await S.caricaCopertina(x.id, copertina)).file;
+      if (nuovo) app.srv.libreria = [...(app.srv.libreria || []), x];
+      await salvaLibreria();
+    } catch (e) {
+      if (nuovo) app.srv.libreria = (app.srv.libreria || []).filter((y) => y !== x);
+      errore.textContent = `Il server non ha salvato la scheda: ${e.message}`;
+      return false;
+    }
+    return true;
+  };
+
+  const ok = await dialog({
+    title: nuovo ? 'Aggiungi un gioco alla libreria' : `Scheda di ${voce.titolo}`,
+    width: '640px',
+    body: [h('div.form', null,
+      ...(nuovo ? riga('Archivio ZIP:', h('button.btn', { type: 'button', onclick: scegliZip }, 'Scegli...'), ' ', statoZip) : []),
+      ...riga('Titolo:', titolo), ...riga('Sottotitolo:', sottotitolo),
+      ...riga('Editore:', editore), ...riga('Anno:', anno), ...riga('Genere:', genere),
+      ...riga('Cartella in C:\\GIOCHI:', cartella), ...riga('Programma:', avvio), ...riga('Argomenti:', argomenti),
+      ...riga('Profilo consigliato:', profiloSel),
+      ...riga('Copertina:', h('button.btn', { type: 'button', onclick: scegliCopertina }, 'Scegli...'), ' ', statoCop),
+      ...riga('Note:', note)), errore],
+    buttons: [{ label: nuovo ? 'Aggiungi' : 'Salva', default: true, value: true, onClick: conferma }, { label: 'Annulla', value: false }],
+  });
+  if (!ok) return;
+  if (nuovo && zip) await messageBox({ title: 'Retro486', text: 'Gioco copiato sull\'hard disk di questo browser. Per ritrovarlo dagli altri dispositivi salva il disco sul server dal pannello HARD DISK.' });
+  app.mostra('libreria');
+}
+
+async function rimuoviGioco(x) {
+  const dir = x.cartella.replace(/^C:/i, '');
+  const scelta = await dialog({
+    title: 'Retro486',
+    body: h('p', null, `Togliere "${x.titolo}" dalla libreria? Si possono cancellare anche i file in ${x.cartella}.`),
+    buttons: [{ label: 'Solo dalla libreria', value: 'voce', default: true }, { label: 'Anche i file', value: 'file' }, { label: 'Annulla', value: null }],
+  });
+  if (!scelta) return;
+  const prima = app.srv.libreria;
+  app.srv.libreria = prima.filter((y) => y !== x);
+  try { await salvaLibreria(); } catch (e) {
+    app.srv.libreria = prima;
+    return messageBox({ title: 'Retro486', kind: 'warning', text: `Il server non ha salvato la libreria: ${e.message}` });
+  }
+  if (scelta === 'file' && /^\\GIOCHI\\[^\\]+$/i.test(dir) && await S.discoLocalePresente()) {
+    if (!app.disco) app.disco = await Disco.apri();
+    if (app.disco.vol.exists(dir)) { app.disco.vol.remove(dir, { recursive: true }); await app.disco.salva(); }
+  }
+  app.mostra('libreria');
 }
 
 // ---------------------------------------------------------------- MEDIA
