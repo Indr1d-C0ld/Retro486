@@ -90,6 +90,8 @@ void                wjit_call_c(void *fn, int type_id);     /* call_indirect thr
 void                wjit_note_func_arg(int n);
 int                 wjit_take_func_args(void);
 void                wjit_reject(const char *why); /* the block being compiled is not kept */
+/* pclog() says nothing in release builds: this goes to stderr (the page console) */
+void                wjit_log(const char *fmt, ...);
 
 /* The table slot of a compiled block is kept in the first word of its code
    memory (block->data), so that it follows the block's kept versions. */
@@ -97,6 +99,13 @@ static inline uint32_t
 codegen_wasm_block_fn(const uint8_t *data)
 {
     return data ? *(const uint32_t *) data : 0;
+}
+/* The second word: how many of the block's instructions are calls to the
+   interpreter's handlers (a block with any is not replayable by the oracle). */
+static inline uint32_t
+codegen_wasm_block_callouts(const uint8_t *data)
+{
+    return data ? ((const uint32_t *) data)[1] : 0;
 }
 /* Called by the allocator when a block's code memory is handed out/freed. */
 void codegen_wasm_mem_alloc(uint8_t *data);
@@ -109,6 +118,7 @@ extern int      wjit_compile_threshold;
 extern int      wjit_min_ins;       /* blocks shorter than this are never compiled */
 extern int      wjit_max_callouts;  /* more interpreter call-outs than this: never compiled */
 extern int      wjit_call_insns;    /* per-block count of instructions left to the interpreter */
+extern int      wjit_max_live;      /* compiled blocks alive at once: each is a wasm module in the browser */
 /* statistics */
 extern uint32_t wjit_stat_compiled;
 extern uint32_t wjit_stat_rejected;

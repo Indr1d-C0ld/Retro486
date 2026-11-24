@@ -1,8 +1,8 @@
 diff --git a/src/codegen/CMakeLists.txt b/src/codegen/CMakeLists.txt
-index 76005ed4d..b895e2520 100644
+index 76005ed4d..2d866374c 100644
 --- a/src/codegen/CMakeLists.txt
 +++ b/src/codegen/CMakeLists.txt
-@@ -47,7 +47,15 @@ if(DYNAREC)
+@@ -47,7 +47,16 @@ if(DYNAREC)
          codegen_reg.c
      )
  
@@ -13,6 +13,7 @@ index 76005ed4d..b895e2520 100644
 +            codegen_backend_wasm.c
 +            codegen_backend_wasm_uops.c
 +            wasm-emit.c
++            wasm-jit-oracle.c
 +        )
 +        target_link_options(86Box PRIVATE -sALLOW_TABLE_GROWTH=1)
 +    elseif(ARCH STREQUAL "x86_64")
@@ -20,9 +21,18 @@ index 76005ed4d..b895e2520 100644
              codegen_backend_x86-64.c
              codegen_backend_x86-64_ops.c
 diff --git a/src/codegen/codegen.c b/src/codegen/codegen.c
-index 957a75c49..6ed2ca034 100644
+index 957a75c49..366b5e452 100644
 --- a/src/codegen/codegen.c
 +++ b/src/codegen/codegen.c
+@@ -530,7 +530,7 @@ codegen_fpu_guard_int_range(ir_data_t *ir, uint32_t fetchdat, uint32_t op_32, ui
+     int jump_uop;
+ 
+     codegen_accumulate_flush(ir);
+-#if defined __aarch64__ || defined _M_ARM64 || defined __amd64__ || defined _M_X64
++#if defined __aarch64__ || defined _M_ARM64 || defined __amd64__ || defined _M_X64 || defined __EMSCRIPTEN__
+     uop_MOV_REG_PTR(ir, IREG_temp1_D, (void *) &bounds[0]);
+     uop_MOV_REG_PTR(ir, IREG_temp2_D, (void *) &bounds[1]);
+     jump_uop = uop_FCMP_JWITHIN_DEST(ir, IREG_ST(0), IREG_temp1_D, IREG_temp2_D);
 @@ -1094,6 +1094,9 @@ codegen_skip:
          uop_MOV_PTR(ir, IREG_ea_seg, (void *) op_ea_seg);
      if (op_ssegs != last_op_ssegs)
@@ -150,11 +160,133 @@ index 83e445e0b..47b3e8906 100644
  
      codegen_flat_ds = !(cpu_cur_status & CPU_STATUS_NOTFLATDS);
      codegen_flat_ss = !(cpu_cur_status & CPU_STATUS_NOTFLATSS);
+diff --git a/src/codegen/codegen_ir_defs.h b/src/codegen/codegen_ir_defs.h
+index 666cd16bc..4df613d1a 100644
+--- a/src/codegen/codegen_ir_defs.h
++++ b/src/codegen/codegen_ir_defs.h
+@@ -811,7 +811,7 @@ extern void codegen_fpu_guard_int_indefinite(ir_data_t *ir, uint32_t fetchdat, u
+ #define uop_CALL_FUNC(ir, p)                                     uop_gen_pointer(UOP_CALL_FUNC, ir, p)
+ #define uop_CALL_FUNC_RESULT(ir, dst_reg, p)                     uop_gen_reg_dst_pointer(UOP_CALL_FUNC_RESULT, ir, dst_reg, p)
+ #define uop_CALL_FUNC_ORDERED(ir, p)                             uop_gen_pointer(UOP_CALL_FUNC_ORDERED, ir, p)
+-#if defined __aarch64__ || defined _M_ARM64 || defined __amd64__ || defined _M_X64
++#if defined __aarch64__ || defined _M_ARM64 || defined __amd64__ || defined _M_X64 || defined __EMSCRIPTEN__
+ #define uop_CALL_FUNC_RESULT_ORDERED(ir, dst_reg, p)             uop_gen_reg_dst_pointer(UOP_CALL_FUNC_RESULT_ORDERED, ir, dst_reg, p)
+ #else
+ /*Only the arm64 and x86-64 backends keep the cached registers across a C call*/
+diff --git a/src/codegen/codegen_ops_arith.c b/src/codegen/codegen_ops_arith.c
+index f542cc234..bc4500507 100644
+--- a/src/codegen/codegen_ops_arith.c
++++ b/src/codegen/codegen_ops_arith.c
+@@ -2153,7 +2153,7 @@ rebuild_c(ir_data_t *ir)
+     }
+ 
+     if (needs_rebuild && !codegen_flags_rebuild_known(ir, 1)) {
+-#if defined __aarch64__ || defined _M_ARM64 || defined __amd64__ || defined _M_X64
++#if defined __aarch64__ || defined _M_ARM64 || defined __amd64__ || defined _M_X64 || defined __EMSCRIPTEN__
+         /*flags_rebuild_c() writes only flags, so the cached registers are
+           written back but left loaded, and flags is reloaded after it.*/
+         uop_CALL_FUNC_ORDERED(ir, jit_flags_rebuild_c);
+diff --git a/src/codegen/codegen_ops_helpers.c b/src/codegen/codegen_ops_helpers.c
+index a78015be5..fd515960c 100644
+--- a/src/codegen/codegen_ops_helpers.c
++++ b/src/codegen/codegen_ops_helpers.c
+@@ -58,7 +58,7 @@ codegen_flags_known_reset(void)
+ int
+ codegen_flags_rebuild_known(ir_data_t *ir, int carry_only)
+ {
+-#if defined __aarch64__ || defined _M_ARM64 || defined __amd64__ || defined _M_X64
++#if defined __aarch64__ || defined _M_ARM64 || defined __amd64__ || defined _M_X64 || defined __EMSCRIPTEN__
+     int      op = codegen_flags_changed ? cpu_state.flags_op : FLAGS_UNKNOWN;
+     int      is_add;
+     int      is_sub;
+diff --git a/src/codegen/codegen_ops_helpers.h b/src/codegen/codegen_ops_helpers.h
+index 2c0dbc45f..456116807 100644
+--- a/src/codegen/codegen_ops_helpers.h
++++ b/src/codegen/codegen_ops_helpers.h
+@@ -84,7 +84,7 @@ CHECK_SEG_LIMITS(UNUSED(codeblock_t *block), ir_data_t *ir, x86seg *seg, int add
+     /*#SS(0) through SS, #GP(0) through the others*/
+     void *rout = (seg == &cpu_state.seg_ss) ? codegen_ss_rout : codegen_gpf_rout;
+ 
+-#if defined __aarch64__ || defined _M_ARM64 || defined __amd64__ || defined _M_X64
++#if defined __aarch64__ || defined _M_ARM64 || defined __amd64__ || defined _M_X64 || defined __EMSCRIPTEN__
+     uop_CMP_JNWITHIN(ir, addr_reg, ireg_seg_limit_low(seg), ireg_seg_limit_high(seg), end_offset, rout);
+ #else
+     /*Only the arm64 and x86-64 backends implement UOP_CMP_JNWITHIN*/
+diff --git a/src/codegen/codegen_ops_jit_wrappers.h b/src/codegen/codegen_ops_jit_wrappers.h
+index 010df5a5b..7c54669ca 100644
+--- a/src/codegen/codegen_ops_jit_wrappers.h
++++ b/src/codegen/codegen_ops_jit_wrappers.h
+@@ -47,7 +47,7 @@ call_flags_rebuild(ir_data_t *ir, void (*rebuild)(void))
+ {
+     if ((rebuild == jit_flags_rebuild) && codegen_flags_rebuild_known(ir, 0))
+         return;
+-#if defined __aarch64__ || defined _M_ARM64 || defined __amd64__ || defined _M_X64
++#if defined __aarch64__ || defined _M_ARM64 || defined __amd64__ || defined _M_X64 || defined __EMSCRIPTEN__
+     uop_CALL_FUNC_ORDERED(ir, rebuild);
+     uop_MOVZX_REG_PTR_16(ir, IREG_flags, &cpu_state.flags);
+     uop_MOV_IMM(ir, IREG_flags_op, FLAGS_UNKNOWN);
+diff --git a/src/codegen/codegen_ops_misc.c b/src/codegen/codegen_ops_misc.c
+index 7a7583e7f..bfb0e5d12 100644
+--- a/src/codegen/codegen_ops_misc.c
++++ b/src/codegen/codegen_ops_misc.c
+@@ -384,7 +384,7 @@ rebuild_c(ir_data_t *ir)
+     }
+ 
+     if (needs_rebuild && !codegen_flags_rebuild_known(ir, 1)) {
+-#if defined __aarch64__ || defined _M_ARM64 || defined __amd64__ || defined _M_X64
++#if defined __aarch64__ || defined _M_ARM64 || defined __amd64__ || defined _M_X64 || defined __EMSCRIPTEN__
+         /*flags_rebuild_c() writes only flags, so the cached registers are
+           written back but left loaded, and flags is reloaded after it.*/
+         uop_CALL_FUNC_ORDERED(ir, jit_flags_rebuild_c);
 diff --git a/src/cpu/386_dynarec.c b/src/cpu/386_dynarec.c
-index 5b8448fbc..74b548fa6 100644
+index 5b8448fbc..ee2ec9887 100644
 --- a/src/cpu/386_dynarec.c
 +++ b/src/cpu/386_dynarec.c
-@@ -707,6 +707,13 @@ exec386_dynarec_dyn(void)
+@@ -568,6 +568,43 @@ block_ended:
+     cpu_end_block_after_ins = 0;
+ }
+ 
++#    if defined(__EMSCRIPTEN__) && defined(WJIT_ORACLE)
++/* One instruction with the interpreter, as the loop above runs it: the replay
++   of the WebAssembly backend's differential oracle (codegen/wasm-jit-oracle.c). */
++extern void wjit_oracle_exec(codeblock_t *block, void (*code)(void));
++
++void
++wjit_oracle_interp_step(void)
++{
++    oldcs           = CS;
++    oldcpl          = CPL;
++    cpu_state.oldpc = cpu_state.pc;
++    cpu_state.op32  = use32;
++
++    cpu_state.ea_seg = &cpu_state.seg_ds;
++    cpu_state.ssegs  = 0;
++
++    fetchdat = fastreadl_fetch(cs + cpu_state.pc);
++
++    if (!cpu_state.abrt) {
++        cpu_state.temp_CS = CS;
++        cpu_state.temp_cs = cs;
++        cpu_state.temp_pc = cpu_state.pc;
++
++        opcode = fetchdat & 0xFF;
++        fetchdat >>= 8;
++
++        cpu_state.pc++;
++        x86_opcodes[(opcode | cpu_state.op32) & 0x3ff](fetchdat);
++    }
++
++    /* STI, MOV SS and POP SS hold interrupts off for one more instruction;
++       compiled code ends its block after that one and leaves this at 0 */
++    if (cpu_end_block_after_ins)
++        cpu_end_block_after_ins--;
++}
++#    endif
++
+ #if defined(__linux__) && !defined(__clang__)
+ static inline void __attribute__((optimize("O2")))
+ #else
+@@ -707,6 +744,13 @@ exec386_dynarec_dyn(void)
              codegen_block_restore_version(block);
      }
  
@@ -168,7 +300,7 @@ index 5b8448fbc..74b548fa6 100644
      if (valid_block && (block->flags & CODEBLOCK_WAS_RECOMPILED))
      {
  #    ifdef CODEGEN_BACKEND_HAS_BLOCK_LINK
-@@ -715,6 +722,12 @@ exec386_dynarec_dyn(void)
+@@ -715,6 +759,12 @@ exec386_dynarec_dyn(void)
          /* from may predate the reset that turned linking off. */
          if ((from != NULL) && codegen_block_link)
              codegen_link_patch(from, block, phys_addr);
@@ -181,17 +313,252 @@ index 5b8448fbc..74b548fa6 100644
  #    else
          void (*code)(void) = (void *) &block->data[BLOCK_START];
  #    endif
-@@ -738,6 +751,13 @@ exec386_dynarec_dyn(void)
+@@ -727,6 +777,8 @@ exec386_dynarec_dyn(void)
+             link_from = code();
+         else
+             code();
++#    elif defined(__EMSCRIPTEN__) && defined(WJIT_ORACLE)
++        wjit_oracle_exec(block, code);
+ #    else
+         code();
+ #    endif
+@@ -738,6 +790,14 @@ exec386_dynarec_dyn(void)
  #    endif
          if (x86_was_reset)
              codegen_reset();
 +#    ifdef __EMSCRIPTEN__
-+    } else if (valid_block && !cpu_state.abrt && ((block->flags & CODEBLOCK_WASM_NOJIT) || (++block->wasm_hits < (uint32_t) wjit_compile_threshold))) {
-+        /* Not hot enough yet to pay for a WebAssembly.Module compile, or not
-+           worth compiling at all: interpreted, with no recording. */
++    } else if (valid_block && !cpu_state.abrt && ((block->flags & CODEBLOCK_WASM_NOJIT) || (++block->wasm_hits < (uint32_t) wjit_compile_threshold) || ((wjit_stat_compiled - wjit_stat_freed) >= (uint32_t) wjit_max_live))) {
++        /* Not hot enough yet to pay for a WebAssembly.Module compile, not
++           worth compiling at all, or too many modules alive already:
++           interpreted, with no recording. */
 +        wjit_stat_cold_runs++;
 +        exec386_dynarec_int();
 +#    endif
      } else if (valid_block && !cpu_state.abrt) {
          start_pc                 = cs + cpu_state.pc;
          const int max_block_size = (block->flags & CODEBLOCK_BYTE_MASK) ? ((128 - 25) - (start_pc & 0x3f)) : 1000;
+diff --git a/src/mem/mem.c b/src/mem/mem.c
+index db05214ad..22682b7ad 100644
+--- a/src/mem/mem.c
++++ b/src/mem/mem.c
+@@ -157,6 +157,40 @@ mem_log(const char *fmt, ...)
+ #    define mem_log(fmt, ...)
+ #endif
+ 
++#if defined(__EMSCRIPTEN__) && defined(WJIT_ORACLE)
++/* Differential oracle of the WebAssembly recompiler backend
++   (codegen/wasm-jit-oracle.c): RAM writes are recorded, anything else
++   taints the run being checked. */
++extern int  wjit_oracle_phase;
++extern int  wjit_oracle_nofill;
++extern void wjit_oracle_note_ram_write(uint8_t *host, int size);
++extern void wjit_oracle_note_io(void);
++
++static inline int
++wjit_oracle_map_is_ram(const mem_mapping_t *map)
++{
++    return (map == &ram_low_mapping) || (map == &ram_high_mapping) || (map == &ram_mid_mapping) ||
++           (map == &ram_mid_mapping2) || (map == &ram_remapped_mapping) || (map == &ram_remapped_mapping2);
++}
++#    define WJIT_ORACLE_MAP(map)                                              \
++        do {                                                                  \
++            if (wjit_oracle_phase && (map) && !wjit_oracle_map_is_ram(map))   \
++                wjit_oracle_note_io();                                        \
++        } while (0)
++#    define WJIT_ORACLE_RAM_WRITE(page, addr, size)                           \
++        do {                                                                  \
++            if (wjit_oracle_phase) {                                          \
++                if (((page)->mem == NULL) || ((page)->mem == page_ff))        \
++                    wjit_oracle_note_io();                                    \
++                else                                                          \
++                    wjit_oracle_note_ram_write(&(page)->mem[(addr) &0xfff], size); \
++            }                                                                 \
++        } while (0)
++#else
++#    define WJIT_ORACLE_MAP(map)
++#    define WJIT_ORACLE_RAM_WRITE(page, addr, size)
++#endif
++
+ int
+ mem_addr_is_ram(uint32_t addr)
+ {
+@@ -652,6 +686,11 @@ addwritelookup(uint32_t virt, uint32_t phys)
+     if (GDBSTUB_WATCHED(virt))
+         return;
+ 
++#if defined(__EMSCRIPTEN__) && defined(WJIT_ORACLE)
++    if (wjit_oracle_nofill)
++        return;
++#endif
++
+     if (page_lookup[virt >> 12])
+         return;
+ 
+@@ -731,6 +770,7 @@ read_mem_b(uint32_t addr)
+     addr &= rammask;
+ 
+     map = read_mapping[addr >> MEM_GRANULARITY_BITS];
++    WJIT_ORACLE_MAP(map);
+     if (map && map->read_b)
+         ret = map->read_b(addr, map->priv);
+ 
+@@ -750,6 +790,7 @@ read_mem_w(uint32_t addr)
+         ret = read_mem_b(addr) | (read_mem_b(addr + 1) << 8);
+     else {
+         map = read_mapping[addr >> MEM_GRANULARITY_BITS];
++        WJIT_ORACLE_MAP(map);
+ 
+         if (map && map->read_w)
+             ret = map->read_w(addr, map->priv);
+@@ -769,6 +810,7 @@ write_mem_b(uint32_t addr, uint8_t val)
+     addr &= rammask;
+ 
+     map = write_mapping[addr >> MEM_GRANULARITY_BITS];
++    WJIT_ORACLE_MAP(map);
+     if (map && map->write_b)
+         map->write_b(addr, val, map->priv);
+ }
+@@ -786,6 +828,7 @@ write_mem_w(uint32_t addr, uint16_t val)
+         write_mem_b(addr + 1, val >> 8);
+     } else {
+         map = write_mapping[addr >> MEM_GRANULARITY_BITS];
++        WJIT_ORACLE_MAP(map);
+         if (map) {
+             if (map->write_w)
+                 map->write_w(addr, val, map->priv);
+@@ -823,6 +866,7 @@ readmembl(uint32_t addr)
+     addr = (uint32_t) (addr64 & rammask);
+ 
+     map = read_mapping[addr >> MEM_GRANULARITY_BITS];
++    WJIT_ORACLE_MAP(map);
+     if (map && map->read_b)
+         return map->read_b(addr, map->priv);
+ 
+@@ -860,6 +904,7 @@ writemembl(uint32_t addr, uint8_t val)
+     addr = (uint32_t) (addr64 & rammask);
+ 
+     map = write_mapping[addr >> MEM_GRANULARITY_BITS];
++    WJIT_ORACLE_MAP(map);
+     if (map && map->write_b)
+         map->write_b(addr, val, map->priv);
+ }
+@@ -883,6 +928,7 @@ readmembl_no_mmut(uint32_t addr, uint32_t a64)
+         addr &= rammask;
+ 
+     map = read_mapping[addr >> MEM_GRANULARITY_BITS];
++    WJIT_ORACLE_MAP(map);
+     if (map && map->read_b)
+         return map->read_b(addr, map->priv);
+ 
+@@ -913,6 +959,7 @@ writemembl_no_mmut(uint32_t addr, uint32_t a64, uint8_t val)
+         addr &= rammask;
+ 
+     map = write_mapping[addr >> MEM_GRANULARITY_BITS];
++    WJIT_ORACLE_MAP(map);
+     if (map && map->write_b)
+         map->write_b(addr, val, map->priv);
+ }
+@@ -969,6 +1016,7 @@ readmemwl(uint32_t addr)
+     addr = addr64a[0] & rammask;
+ 
+     map = read_mapping[addr >> MEM_GRANULARITY_BITS];
++    WJIT_ORACLE_MAP(map);
+ 
+     if (map && map->read_w)
+         return map->read_w(addr, map->priv);
+@@ -1047,6 +1095,7 @@ writememwl(uint32_t addr, uint16_t val)
+     addr = addr64a[0] & rammask;
+ 
+     map = write_mapping[addr >> MEM_GRANULARITY_BITS];
++    WJIT_ORACLE_MAP(map);
+ 
+     if (map && map->write_w) {
+         map->write_w(addr, val, map->priv);
+@@ -1096,6 +1145,7 @@ readmemwl_no_mmut(uint32_t addr, uint32_t *a64)
+         addr &= rammask;
+ 
+     map = read_mapping[addr >> MEM_GRANULARITY_BITS];
++    WJIT_ORACLE_MAP(map);
+ 
+     if (map && map->read_w)
+         return map->read_w(addr, map->priv);
+@@ -1149,6 +1199,7 @@ writememwl_no_mmut(uint32_t addr, uint32_t *a64, uint16_t val)
+         addr &= rammask;
+ 
+     map = write_mapping[addr >> MEM_GRANULARITY_BITS];
++    WJIT_ORACLE_MAP(map);
+ 
+     if (map && map->write_w) {
+         map->write_w(addr, val, map->priv);
+@@ -1228,6 +1279,7 @@ readmemll(uint32_t addr)
+     addr = addr64a[0] & rammask;
+ 
+     map = read_mapping[addr >> MEM_GRANULARITY_BITS];
++    WJIT_ORACLE_MAP(map);
+ 
+     if (map && map->read_l)
+         return map->read_l(addr, map->priv);
+@@ -1321,6 +1373,7 @@ writememll(uint32_t addr, uint32_t val)
+     addr = addr64a[0] & rammask;
+ 
+     map = write_mapping[addr >> MEM_GRANULARITY_BITS];
++    WJIT_ORACLE_MAP(map);
+ 
+     if (map && map->write_l) {
+         map->write_l(addr, val, map->priv);
+@@ -1376,6 +1429,7 @@ readmemll_no_mmut(uint32_t addr, uint32_t *a64)
+         addr &= rammask;
+ 
+     map = read_mapping[addr >> MEM_GRANULARITY_BITS];
++    WJIT_ORACLE_MAP(map);
+ 
+     if (map && map->read_l)
+         return map->read_l(addr, map->priv);
+@@ -1431,6 +1485,7 @@ writememll_no_mmut(uint32_t addr, uint32_t *a64, uint32_t val)
+         addr &= rammask;
+ 
+     map = write_mapping[addr >> MEM_GRANULARITY_BITS];
++    WJIT_ORACLE_MAP(map);
+ 
+     if (map && map->write_l) {
+         map->write_l(addr, val, map->priv);
+@@ -1515,6 +1570,7 @@ readmemql(uint32_t addr)
+     addr = addr64a[0] & rammask;
+ 
+     map = read_mapping[addr >> MEM_GRANULARITY_BITS];
++    WJIT_ORACLE_MAP(map);
+ 
+     if (map && map->read_l)
+         return map->read_l(addr, map->priv) |
+@@ -1617,6 +1673,7 @@ writememql(uint32_t addr, uint64_t val)
+     addr = addr64a[0] & rammask;
+ 
+     map = write_mapping[addr >> MEM_GRANULARITY_BITS];
++    WJIT_ORACLE_MAP(map);
+ 
+     if (map && map->write_l) {
+         map->write_l(addr, val, map->priv);
+@@ -1928,6 +1985,7 @@ mem_write_ramb_page(uint32_t addr, uint8_t val, page_t *page)
+ {
+     if (page == NULL)
+         return;
++    WJIT_ORACLE_RAM_WRITE(page, addr, 1);
+ 
+ #    ifdef USE_DYNAREC
+     if ((page->mem == NULL) || (page->mem == page_ff) || (val != page->mem[addr & 0xfff]) || codegen_in_recompile) {
+@@ -1953,6 +2011,7 @@ mem_write_ramw_page(uint32_t addr, uint16_t val, page_t *page)
+ {
+     if (page == NULL)
+         return;
++    WJIT_ORACLE_RAM_WRITE(page, addr, 2);
+ 
+ #    ifdef USE_DYNAREC
+     if ((page->mem == NULL) || (page->mem == page_ff) || (val != *(uint16_t *) &page->mem[addr & 0xfff]) || codegen_in_recompile) {
+@@ -1988,6 +2047,7 @@ mem_write_raml_page(uint32_t addr, uint32_t val, page_t *page)
+ {
+     if (page == NULL)
+         return;
++    WJIT_ORACLE_RAM_WRITE(page, addr, 4);
+ 
+ #    ifdef USE_DYNAREC
+     if ((page->mem == NULL) || (page->mem == page_ff) || (val != *(uint32_t *) &page->mem[addr & 0xfff]) || codegen_in_recompile) {

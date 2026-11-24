@@ -38,7 +38,8 @@ for (const [n, v] of VARIANTI.entries()) {
     await js(`(() => { const p = retro486.profili.find((x) => x.id === 'dx33'); Object.assign(p.hw, ${JSON.stringify(v.hw)}); retro486.stato.profilo = 'dx33'; retro486.crt.enabled = ${v.crt}; })()`);
     console.error('portale pronto'); await js(`retro486.mostra('libreria')`); await sleep(9000); console.error('libreria');
     await js(`[...document.querySelectorAll('button')].find((b) => b.textContent.includes('Avvia'))?.click()`);
-    if (JITPARAM) { await sleep(3000); await js(`(() => { const m = web86box.module; if (m && m._wjit_set_params) m._wjit_set_params(${JITPARAM}); })()`); }
+    const jp = v.jitparam || JITPARAM; // per variante: "jitparam":"16,6,0"
+    if (jp) { await sleep(3000); await js(`(() => { const m = web86box.module; if (m && m._wjit_set_params) m._wjit_set_params(${jp}); })()`); }
     await sleep(ATTESA * 1000);
     const foto = async (quando) => { if (!FOTO) return; const r = await cdp('Page.captureScreenshot', { format: 'png' });
       fs.mkdirSync(FOTO, { recursive: true }); fs.writeFileSync(path.join(FOTO, `${v.nome.replace(/[^a-z0-9]+/gi, '-')}-${quando}.png`), Buffer.from(r.result.data, 'base64')); };

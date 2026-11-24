@@ -38,6 +38,7 @@
  */
 #ifdef __EMSCRIPTEN__
 
+#    include <stdarg.h>
 #    include <stdio.h>
 #    include <stdlib.h>
 #    include <stdint.h>
@@ -113,36 +114,63 @@ static uint32_t        free_slots[WJIT_FREE_MAX];
 static int             n_free_slots;
 static pthread_mutex_t free_slots_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+/* Compile policy, measured with Leisure Suit Larry 3 on an emulated
+   Am5x86-133 (threshold, min_ins, max_callouts -> speed): 16,6,0 89%;
+   16,1,0 98%; 16,1,100 99%; 16,3,100 96%; 32,1,100 99%; 8,1,100 86%.
+   PCem-WebAssembly's limit of 6 instructions does not pay here; leaving
+   blocks with interpreter call-outs uncompiled costs nothing measurable and
+   keeps every compiled block replayable by the differential oracle. */
 int      wjit_compile_threshold = 16;
-int      wjit_min_ins           = 6;
+int      wjit_min_ins           = 1;
 int      wjit_max_callouts      = 0;
 int      wjit_call_insns        = 0;
+/* Every live compiled block is a WebAssembly.Module and an instance of it in
+   the browser, some tens of kB each. Past this many, further blocks are
+   interpreted until others are freed. */
+int      wjit_max_live          = 8192;
 uint32_t wjit_stat_compiled;
 uint32_t wjit_stat_rejected;
 uint32_t wjit_stat_failed;
 uint32_t wjit_stat_cold_runs;
 uint32_t wjit_stat_freed;
 uint64_t wjit_stat_runs;
+static uint32_t wjit_stat_compiled_callout;
 static uint32_t wjit_stat_rej_short;
 static uint32_t wjit_stat_rej_callout;
 static uint32_t wjit_stat_rej_uop;
 static uint64_t wjit_stat_module_bytes;
 static double   wjit_stat_compile_ms;
 
+#    ifdef WJIT_ORACLE
+extern uint32_t wjit_oracle_verified;
+extern uint32_t wjit_oracle_skipped;
+extern uint32_t wjit_oracle_replay_skipped;
+extern uint32_t wjit_oracle_mismatches;
+extern uint32_t wjit_oracle_unverifiable;
+#    endif
+
 /* Diagnostics for the page (Module._wjit_stats() -> UTF8ToString). */
 EMSCRIPTEN_KEEPALIVE const char *
 wjit_stats(void)
 {
-    static char buf[512];
+    static char buf[768];
+    int         n;
 
-    snprintf(buf, sizeof(buf),
-             "{\"dynarec\":%d,\"compiled\":%u,\"rejected\":%u,\"rej_short\":%u,\"rej_callout\":%u,\"rej_uop\":%u,"
+    n = snprintf(buf, sizeof(buf),
+             "{\"dynarec\":%d,\"compiled\":%u,\"compiled_callout\":%u,\"rejected\":%u,\"rej_short\":%u,\"rej_callout\":%u,\"rej_uop\":%u,"
              "\"failed\":%u,\"cold_runs\":%u,\"freed\":%u,\"runs\":%.0f,\"module_bytes\":%.0f,\"compile_ms\":%.1f,"
-             "\"threshold\":%d,\"min_ins\":%d,\"max_callouts\":%d}",
-             cpu_use_dynarec, wjit_stat_compiled, wjit_stat_rejected, wjit_stat_rej_short, wjit_stat_rej_callout,
+             "\"threshold\":%d,\"min_ins\":%d,\"max_callouts\":%d,\"max_live\":%d}",
+             cpu_use_dynarec, wjit_stat_compiled, wjit_stat_compiled_callout, wjit_stat_rejected, wjit_stat_rej_short, wjit_stat_rej_callout,
              wjit_stat_rej_uop, wjit_stat_failed, wjit_stat_cold_runs, wjit_stat_freed, (double) wjit_stat_runs,
              (double) wjit_stat_module_bytes, wjit_stat_compile_ms, wjit_compile_threshold, wjit_min_ins,
-             wjit_max_callouts);
+             wjit_max_callouts, wjit_max_live);
+#    ifdef WJIT_ORACLE
+    snprintf(buf + n - 1, sizeof(buf) - n, ",\"oracle_verified\":%u,\"oracle_skipped\":%u,\"oracle_replay_skipped\":%u,\"oracle_unverifiable\":%u,\"oracle_mismatches\":%u}",
+             wjit_oracle_verified, wjit_oracle_skipped, wjit_oracle_replay_skipped, wjit_oracle_unverifiable,
+             wjit_oracle_mismatches);
+#    else
+    (void) n;
+#    endif
     return buf;
 }
 
@@ -156,6 +184,16 @@ wjit_set_params(int threshold, int min_ins, int max_callouts)
         wjit_min_ins = min_ins;
     if (max_callouts >= 0)
         wjit_max_callouts = max_callouts;
+}
+
+void
+wjit_log(const char *fmt, ...)
+{
+    va_list ap;
+
+    va_start(ap, fmt);
+    vfprintf(stderr, fmt, ap);
+    va_end(ap);
 }
 
 struct wasm_emit_t *
@@ -317,7 +355,7 @@ codegen_backend_epilogue(codeblock_t *block)
 
         if (logged < 20) {
             logged++;
-            pclog("wasm JIT: block %08x not compiled: %s\n", block->pc, reject_reason ? reject_reason : "?");
+            wjit_log("wasm JIT: block %08x not compiled: %s\n", block->pc, reject_reason ? reject_reason : "?");
         }
         wjit_stat_rejected++;
         wjit_stat_rej_uop++;
@@ -325,11 +363,10 @@ codegen_backend_epilogue(codeblock_t *block)
         return;
     }
 
-    /* Cost model (PCem-WebAssembly, measured there): a block that leaves
-       instructions to the interpreter's handlers, or is only a few
-       instructions long, does not win over interpreting it once the call
-       through the table, the prologue and the module compile are paid.
-       It is interpreted for good. */
+    /* Cost model (after PCem-WebAssembly; the limits are the ones measured
+       here, see wjit_min_ins above): a block that leaves instructions to
+       the interpreter's handlers, or is shorter than the limit, is
+       interpreted for good. */
     if (wjit_call_insns > wjit_max_callouts) {
         wjit_stat_rejected++;
         wjit_stat_rej_callout++;
@@ -420,8 +457,11 @@ codegen_backend_epilogue(codeblock_t *block)
         goto fail;
     }
 
-    *(uint32_t *) block->data = idx;
+    ((uint32_t *) block->data)[0] = idx;
+    ((uint32_t *) block->data)[1] = (uint32_t) wjit_call_insns;
     wjit_stat_compiled++;
+    if (wjit_call_insns)
+        wjit_stat_compiled_callout++;
     wjit_stat_module_bytes += module_len;
     return;
 
