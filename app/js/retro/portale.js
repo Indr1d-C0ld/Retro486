@@ -169,7 +169,7 @@ function pulsante(testo, onclick, cls = '') {
 async function pannelloSistema() {
   const p = profilo();
   const righe = P.riassunto(app.catalog, p);
-  const c = P.costo(p.hw.cpu_speed);
+  const c = P.costo(p.hw.cpu_speed, p.hw.jit);
   const locale = await S.discoLocalePresente();
   const info = S.infoLocale();
   const disco = (app.srv.dischi || []).find((d) => d.nome === 'c');
@@ -265,7 +265,7 @@ async function pannelloConfigura() {
       const rams = P.ramChoices(mm);
       if (!rams.includes(hw.ram)) hw.ram = rams.reduce((a, b) => (Math.abs(b - hw.ram) < Math.abs(a - hw.ram) ? b : a), rams[0]);
       const devs = (key) => cat.list(key, mm).map((d) => [d.i, d.n]);
-      const c = P.costo(hw.cpu_speed);
+      const c = P.costo(hw.cpu_speed, hw.jit);
       campi.replaceChildren(
         sel('Scheda madre', hw.machine, P.machines486(cat).map((x) => [x.i, `${cat.machine_types[x.t]?.name?.replace(/^\[\d+\]\s*/, '') || ''} · ${x.n}`]), (v) => { hw.machine = v; ridisegna(); }),
         sel('Processore', `${hw.cpu_family}|${hw.cpu_speed}`, cpus.map((x) => [`${x.family}|${x.speed}`, x.label]), (v) => { const [f, s] = v.split('|'); hw.cpu_family = f; hw.cpu_speed = Number(s); ridisegna(); },

@@ -15,19 +15,19 @@ export const PREDEFINITI = [
   {
     id: 'dx33', nome: 'IBM compatibile 1992', anno: 1992,
     descrizione: 'Il 486 di riferimento: gira in tempo reale nel browser.',
-    hw: { machine: 'vli486sv2g', cpu_family: 'i486dx', cpu_speed: 33333333, ram: 8, video: 's3_86c805_vlb',
+    hw: { machine: 'vli486sv2g', cpu_family: 'i486dx', cpu_speed: 33333333, jit: true, ram: 8, video: 's3_86c805_vlb',
       sound: 'sb16', midi: 'mt32', mpu: true, mouse: 'ps2', fdd_a: '35_2hd', fdd_b: '525_2hd', cdrom: true },
   },
   {
     id: 'dx2-66', nome: 'Gaming Rig 1994', anno: 1994,
-    descrizione: 'DX2-66 su VLB con S3 Trio64: il PC di Doom. Richiede un processore host veloce.',
-    hw: { machine: 'vli486sv2g', cpu_family: 'i486dx2', cpu_speed: 66666666, ram: 16, video: 's3_trio64_vlb',
+    descrizione: 'DX2-66 su VLB con S3 Trio64: il PC di Doom. In tempo reale con il ricompilatore dinamico.',
+    hw: { machine: 'vli486sv2g', cpu_family: 'i486dx2', cpu_speed: 66666666, jit: true, ram: 16, video: 's3_trio64_vlb',
       sound: 'sb16', midi: 'mt32', mpu: true, mouse: 'ps2', fdd_a: '35_2hd', fdd_b: 'none', cdrom: true },
   },
   {
     id: 'dx4-100', nome: 'Top di gamma 1995', anno: 1995,
-    descrizione: 'Intel DX4 a 100 MHz, 32 MB: il massimo del Socket 3. Molto esigente per il browser.',
-    hw: { machine: 'vli486sv2g', cpu_family: 'i486dx4', cpu_speed: 100000000, ram: 32, video: 's3_trio64_vlb',
+    descrizione: 'Intel DX4 a 100 MHz, 32 MB: il massimo del Socket 3. Richiede il ricompilatore dinamico.',
+    hw: { machine: 'vli486sv2g', cpu_family: 'idx4', cpu_speed: 100000000, jit: true, ram: 32, video: 's3_trio64_vlb',
       sound: 'sb16', midi: 'mt32', mpu: true, mouse: 'ps2', fdd_a: '35_2hd', fdd_b: 'none', cdrom: true },
   },
   {
@@ -48,9 +48,15 @@ export const PREDEFINITI = [
 export function mhz(hz) { return `${Math.floor(hz / 1e6 + 0.01)} MHz`; }
 
 // Il "costo" per il browser, misurato: l'interprete di 86Box in WebAssembly regge
-// circa un 486 a 33-40 MHz in tempo reale su un desktop moderno.
-export function costo(hz) {
+// circa un 486 a 33-40 MHz in tempo reale su un desktop moderno; con il ricompilatore
+// dinamico (jit) si arriva al DX4 a 100 MHz e all'Am5x86 a 133 MHz.
+export function costo(hz, jit = false) {
   const m = hz / 1e6;
+  if (jit) {
+    if (m <= 100) return { livello: 0, testo: 'tempo reale' };
+    if (m <= 133) return { livello: 1, testo: 'esigente' };
+    return { livello: 2, testo: 'molto esigente' };
+  }
   if (m <= 40) return { livello: 0, testo: 'tempo reale' };
   if (m <= 66) return { livello: 1, testo: 'esigente' };
   return { livello: 2, testo: 'molto esigente' };

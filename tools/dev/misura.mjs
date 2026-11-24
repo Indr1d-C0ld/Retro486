@@ -2,7 +2,7 @@
 // Retro486 - misura la velocità di emulazione in un gioco della libreria, per varianti.
 //   node tools/dev/misura.mjs [url] [secondi di attesa] [secondi di misura]
 //   VARIANTI='[{"nome":"jit","hw":{"jit":true},"crt":false}]'  varianti (hw sovrascrive i campi del profilo)
-//   FOTO=cartella   salva uno screenshot all'inizio e alla fine della misura
+//   FOTO=cartella   salva uno screenshot all'inizio e alla fine della misura (FOTO_SERIE=4,8,12: anche a quei secondi dall'avvio)
 //   JITPARAM=soglia,min_istruzioni,max_chiamate   parametri del ricompilatore (build JIT)
 import { spawn } from 'node:child_process';
 import fs from 'node:fs'; import os from 'node:os'; import path from 'node:path';
@@ -16,6 +16,7 @@ const VARIANTI = (process.env.VARIANTI ? JSON.parse(process.env.VARIANTI) : [
 ]);
 const FOTO = process.env.FOTO || '';
 const JITPARAM = process.env.JITPARAM || '';
+const SERIE = (process.env.FOTO_SERIE || '').split(',').map(Number).filter((x) => x > 0).sort((a, b) => a - b);
 const LOG = !!process.env.LOG; // LOG=1: mostra la console della pagina
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 for (const [n, v] of VARIANTI.entries()) {
@@ -40,9 +41,12 @@ for (const [n, v] of VARIANTI.entries()) {
     await js(`[...document.querySelectorAll('button')].find((b) => b.textContent.includes('Avvia'))?.click()`);
     const jp = v.jitparam || JITPARAM; // per variante: "jitparam":"16,6,0"
     if (jp) { await sleep(3000); await js(`(() => { const m = web86box.module; if (m && m._wjit_set_params) m._wjit_set_params(${jp}); })()`); }
-    await sleep(ATTESA * 1000);
     const foto = async (quando) => { if (!FOTO) return; const r = await cdp('Page.captureScreenshot', { format: 'png' });
       fs.mkdirSync(FOTO, { recursive: true }); fs.writeFileSync(path.join(FOTO, `${v.nome.replace(/[^a-z0-9]+/gi, '-')}-${quando}.png`), Buffer.from(r.result.data, 'base64')); };
+    // FOTO_SERIE=4,8,12: screenshot anche a questi secondi dall'avvio (POST del BIOS, MS-DOS...)
+    let passati = jp ? 3 : 0;
+    for (const t of SERIE) { if (t > passati && t < ATTESA) { await sleep((t - passati) * 1000); passati = t; await foto(`t${String(t).padStart(3, '0')}`); } }
+    await sleep(Math.max(0, ATTESA - passati) * 1000);
     await foto('inizio');
     const s = [];
     for (let i = 0; i < MISURA; i++) { await sleep(1000); s.push(await js('web86box.speedPercent')); }

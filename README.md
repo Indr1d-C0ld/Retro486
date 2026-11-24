@@ -31,7 +31,7 @@ dischi, profili e supporti.
 
 | | |
 |---|---|
-| **Emulatore** | 86Box 7.0 (core originale, interprete) in WebAssembly a 64 bit con thread, dal port [Web86Box](https://github.com/Xeon3D/Web86Box) |
+| **Emulatore** | 86Box 7.0 (core originale) in WebAssembly a 32 bit con thread, dal port [Web86Box](https://github.com/Xeon3D/Web86Box), con il ricompilatore dinamico di 86Box portato a WebAssembly (interprete sempre disponibile) |
 | **Macchina di riferimento** | ASUS VL/I-486SV2GX4 (SiS 471, VLB, Award BIOS 4.51G) · Intel i486DX-33 · 8 MB · S3 86c805 VLB · Sound Blaster 16 · Roland MT-32 su MPU-401 |
 | **Configurabile** | 64 CPU reali per questa scheda (Intel, AMD, Cyrix: dal 486SX-20 al 5x86-160 e al Pentium OverDrive), ogni scheda madre 486 di 86Box con BIOS disponibile, RAM, video, audio, MIDI, mouse, floppy, CD-ROM, e il dialogo completo delle impostazioni di 86Box |
 | **Sistema** | MS-DOS 6.22 italiano, menu di avvio XMS+EMS / XMS / minimo, CD-ROM su D:, mouse, tastiera italiana, `BLASTER` impostato |
@@ -88,11 +88,11 @@ Profili predefiniti:
 
 | Profilo | Macchina | Nel browser |
 |---|---|---|
-| IBM compatibile 1992 | i486DX-33, 8 MB, S3 805, SB16, MT-32 | tempo reale |
-| Gaming Rig 1994 | i486DX2-66, 16 MB, S3 Trio64, SB16, MT-32 | esigente |
-| Top di gamma 1995 | iDX4-100, 32 MB, S3 Trio64, SB16, MT-32 | molto esigente |
-| PC economico 1991 | i486SX-25, 4 MB, ET4000, SB Pro 2 | tempo reale |
-| Postazione Windows 3.11 | i486DX2-66, 16 MB, S3 Trio64, SB16 | esigente |
+| IBM compatibile 1992 | i486DX-33, 8 MB, S3 805, SB16, MT-32 | tempo reale (JIT) |
+| Gaming Rig 1994 | i486DX2-66, 16 MB, S3 Trio64, SB16, MT-32 | tempo reale (JIT) |
+| Top di gamma 1995 | iDX4-100, 32 MB, S3 Trio64, SB16, MT-32 | tempo reale (JIT) |
+| PC economico 1991 | i486SX-25, 4 MB, ET4000, SB Pro 2 | tempo reale (interprete) |
+| Postazione Windows 3.11 | i486DX2-66, 16 MB, S3 Trio64, SB16 | esigente (interprete) |
 
 ## L'hard disk C:
 
@@ -132,17 +132,76 @@ approssimata a fasce.
 
 ## Velocità, onestamente
 
-I ricompilatori dinamici di 86Box generano codice x86, che WebAssembly non può eseguire: nel browser lavora
-l'interprete. Misure su Melchior, al prompt di MS-DOS:
+I ricompilatori dinamici di 86Box generano codice macchina x86-64 o ARM64, che WebAssembly non può
+eseguire. Retro486 aggiunge al "nuovo ricompilatore" di 86Box un **backend WebAssembly**: ogni blocco di
+codice x86 caldo diventa un piccolo modulo wasm generato a tempo di esecuzione, compilato dal browser e
+chiamato dal ciclo della CPU come una normale funzione C. Il resto (codice freddo, blocchi con I/O o
+istruzioni di sistema) resta all'interprete.
 
-| CPU emulata | Velocità rispetto al reale |
-|---|---|
-| i486DX-33 | 93-100% |
-| i486DX2-66 | 51-53% |
+Misure su Melchior con `tools/dev/misura.mjs` (Chromium headless, intro di Leisure Suit Larry 3 con la
+MT-32, media su 30 secondi dopo 60 di avvio), stessa build, ricompilatore spento o acceso. Durante le
+misure l'host era occupato anche da altri lavori (carico medio fra 26 e 42 su 24 thread): i valori
+dell'interprete sono quindi più bassi di quelli a macchina libera, e conta il confronto.
+
+| CPU emulata | Interprete | Ricompilatore (JIT) |
+|---|---|---|
+| i486DX-33 | 60% (min 50%) | 100% (min 99%) |
+| i486DX2-66 | 36% (min 31%) | 100% (min 99%) |
+| iDX4-100 | 25% (min 23%) | 100% (min 93%) |
+| Am5x86-133 (build di sviluppo, senza LTO) | 19% (min 17%) | 98% (min 72%) |
 
 Il clock resta fedele finché l'host ce la fa; oltre, la macchina rallenta in modo uniforme (non accelera
-mai). La build con `-flto -msimd128` guadagna circa il 4%. Per DX2-66 e DX4-100 a piena velocità servirebbe un
-ricompilatore verso WebAssembly (PCem-WebAssembly ne ha uno per PCem: è il prossimo passo possibile).
+mai). Nella sessione di Larry 3 si compilano circa 3.550 blocchi (4,5 MB di moduli wasm, 1,1-1,4 secondi di
+compilazione in tutto) e circa 470 restano all'interprete perché contengono istruzioni non ricompilate.
+
+### Il ricompilatore dinamico (JIT)
+
+- **Come è fatto.** `tools/86box/jit/` contiene il backend: `wasm-emit.c` (emettitore di bytecode e
+  installazione del modulo nella tabella delle funzioni, preso da
+  [PCem-WebAssembly](https://github.com/va3jfl/PCem-WebAssembly), che ha un backend analogo per PCem), `codegen_backend_wasm.c`
+  (ciclo di vita dei blocchi, salti in avanti resi con `block`/`br`, lista degli slot liberi),
+  `codegen_backend_wasm_uops.c` (i gestori degli uop, con la semantica del backend ARM64 di 86Box) e
+  `wasm-jit-oracle.c`. `tools/86box/patch/0002-wasm-jit.patch` aggancia il tutto a 86Box.
+- **Quando compila.** Un blocco viene interpretato finché non è stato eseguito 16 volte (compilare un
+  `WebAssembly.Module` costa molto più che emettere codice nativo); i blocchi che chiamano i gestori
+  dell'interprete non si compilano. Soglie misurate, non ereditate: sono nel sorgente con i numeri.
+- **Accessi alla memoria.** In linea attraverso `readlookup2`/`writelookup2` come nei backend nativi,
+  con ripiego su `readmemXl`/`writememXl`.
+- **Thread.** Si compila e si esegue solo sul thread della CPU: una funzione installata nella tabella
+  di un thread non è chiamabile dagli altri.
+- **Interruttore.** `jit` nel profilo (`cpu_use_dynarec` in 86box.cfg) e la casella *Ricompilatore
+  dinamico (JIT)* in CONFIGURA. Acceso nei profili DX-33, DX2-66 e DX4-100; spento negli altri due, dove
+  non è stato verificato (486SX senza coprocessore, Windows 3.11).
+
+**Verifica.** La build con `-DWJIT_ORACLE` rifà con l'interprete ogni esecuzione di un blocco compilato
+e confronta registri, flag, segmenti, x87 e ogni byte scritto in RAM (`wasm-jit-oracle.c`, dall'oracolo di
+PCem-WebAssembly). Risultati su i486DX-33:
+
+| Prova | Blocchi verificati | Saltati (accesso a periferiche) | Divergenze |
+|---|---|---|---|
+| POST del BIOS, avvio di MS-DOS 6.22 con EMM386, intro di Larry 3 (tre esecuzioni) | 20,6 + 20,5 + 10,9 milioni | 1.575 per esecuzione | 0 |
+| `PROVAJIT.COM` (`tools/dev/provajit`): interi a 8/16/32 bit, scorrimenti, MUL/DIV, bit, SETcc, salti, stringhe, pila, x87 | 12,4 milioni | 1.596 | 0 |
+
+`PROVAJIT.COM` stampa la stessa somma di controllo (`5D8F9657`) con l'interprete e con il ricompilatore.
+Un errore messo apposta in un gestore (SAR reso logico) produce subito migliaia di divergenze: l'oracolo
+vede.
+
+| | | |
+|---|---|---|
+| ![POST con il JIT](docs/img/jit-01-bios-post.png) | ![MS-DOS con il JIT](docs/img/jit-02-ms-dos.png) | ![Larry 3 con il JIT](docs/img/jit-03-larry3.png) |
+
+**Limiti noti.**
+
+- Niente collegamento diretto fra blocchi (il *block linking* dei backend nativi): fra un blocco e
+  l'altro si torna al ciclo in C. È il margine che resta.
+- Gli uop MMX e 3DNow! non sono implementati: i blocchi che li usano restano all'interprete (un 486
+  non li esegue mai). REP MOVS/STOS e le istruzioni di I/O passano per i gestori dell'interprete.
+- L'oracolo verifica solo i blocchi "puri"; con le soglie scelte sono gli unici che si compilano. Non
+  sono stati verificati: modo protetto a 32 bit (Windows 3.11, DOS extender), CPU senza FPU, Pentium.
+- I puntatori dell'ultima istruzione x87 (FSTENV/FSAVE) sono aggiornati dal codice compilato solo con
+  `cpu_dyn_accurate_fpu_env = 1`, come in 86Box nativo.
+- Ogni blocco compilato è un modulo wasm nel browser: al massimo 8.192 vivi insieme, oltre si
+  interpreta. Serve una tabella di funzioni espandibile (`-sALLOW_TABLE_GROWTH=1`).
 
 ## Architettura
 
@@ -185,7 +244,9 @@ tools/
   libreria.json        i giochi da installare
   prepara-dati.sh      data/: disco compresso, libreria, supporti
   costruisci.sh        dist/: 86Box + ROM + portale + api
-  mbr/  disco/driver/  font/  pixellab/  86box/  dev/
+  86box/               build di 86Box: build-wasm32-jit.sh, patch/, jit/ (backend WebAssembly del ricompilatore)
+  dev/                 misura.mjs, prova-jit.mjs, provajit/ (PROVAJIT.COM), profila.mjs, screenshot.mjs
+  mbr/  disco/driver/  font/  pixellab/
 deploy/                pubblica.sh, pubblica-dati.sh, balthasar/ (Apache + installatore)
 docs/img/              immagini del README (tools/dev/screenshot.mjs)
 vendor/  (ignorata)    Web86Box con 86Box come sottomodulo, set di ROM di 86Box
@@ -205,8 +266,15 @@ git init -q roms && git -C roms remote add origin https://github.com/86Box/roms.
 git -C roms fetch -q --depth 1 origin c69660478eeab51a1ad32e586841bca878f292d0 && git -C roms checkout -q FETCH_HEAD
 cd ..
 source ~/.local/opt/emsdk/emsdk_env.sh
-CMAKE_POLICY_VERSION_MINIMUM=3.5 ROMS_DIR=$PWD/vendor/roms bash tools/86box/build-ottimizzata.sh
+CMAKE_POLICY_VERSION_MINIMUM=3.5 ROMS_DIR=$PWD/vendor/roms bash tools/86box/build-wasm32-jit.sh
 ```
+
+`build-wasm32-jit.sh` applica `tools/86box/patch/*.patch` al sottomodulo 86Box, copia i sorgenti di
+`tools/86box/jit/` in `src/codegen` e compila a 32 bit con `-DDYNAREC=ON` (`BUILD_DIR`, `DIST_DIR`,
+`OPT_FLAGS`, `LINK_FLAGS` come variabili d'ambiente). La build di verifica con l'oracolo:
+`OPT_FLAGS="-O2 -msimd128 -DWJIT_ORACLE"`. Dopo una modifica a 86Box, `tools/86box/rigenera-patch-jit.sh`
+riscrive la patch. Prove: `node tools/dev/misura.mjs` (velocità, `VARIANTI`, `FOTO`, `JITPARAM`) e
+`node tools/dev/prova-jit.mjs` (esegue `PROVAJIT.COM` nella macchina emulata).
 
 Hard disk, dati e sito (le immagini di MS-DOS 6.22 in `media/os/msdos-6.22-ita/Disk01..04.img`, le ROM
 MT-32 in `~/.local/share/melchior688/mt32/rom/mt32pi`):
