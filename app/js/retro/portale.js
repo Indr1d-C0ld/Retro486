@@ -443,7 +443,7 @@ async function pannelloDisco() {
 
   const disegnaAzioni = () => {
     const e = selezione ? v.lookup(join(cwd, selezione)) : null;
-    azioni.replaceChildren(
+    azioni.replaceChildren(...[
       pulsante('Carica file qui...', async () => {
         const files = await pickFiles({ multiple: true });
         await caricaFile(files);
@@ -487,7 +487,7 @@ async function pannelloDisco() {
         aggiorna();
       }, disco.modificato ? '.r-big' : ''),
       pulsante('Annulla modifiche', async () => { app.disco = await Disco.apri(); app.mostra('disco'); }),
-    );
+    ].filter(Boolean));
   };
 
   const caricaFile = async (files, cartella = false) => {
