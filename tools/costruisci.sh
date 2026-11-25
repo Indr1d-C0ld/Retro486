@@ -35,7 +35,9 @@ vendor/Web86Box/tools/gen-rom-manifest.sh dist/roms >/dev/null
 VERSION=$(node -p "require('./package.json').version")
 COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "?")
 SPORCO=$([[ -n $(git status --porcelain 2>/dev/null) ]] && echo true || echo false)
+# impronta della build di 86Box: app/js/emulator.js la mette nell'indirizzo di 86Box.wasm
+WASM=$(cat dist/86Box.mjs dist/86Box.wasm | sha256sum | cut -c1-12)
 cat > dist/version.json <<JSON
-{"name":"Retro486","version":"$VERSION","commit":"$COMMIT","dirty":$SPORCO,"built":"$(date -Iseconds)"}
+{"name":"Retro486","version":"$VERSION","commit":"$COMMIT","dirty":$SPORCO,"built":"$(date -Iseconds)","wasm":"$WASM"}
 JSON
 echo "dist/: $(du -sh dist | cut -f1), versione $VERSION ($COMMIT)"

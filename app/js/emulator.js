@@ -41,6 +41,12 @@ export class Emulator extends EventTarget {
   }
 
   async load() {
+    // Retro486: 86Box.mjs (sempre riconvalidato) e 86Box.wasm devono essere della stessa build, ma il
+    // .wasm è servito con una cache di un giorno. L'impronta scritta in version.json da
+    // tools/costruisci.sh ne cambia l'indirizzo a ogni build, così il browser non accoppia un .mjs
+    // nuovo con un .wasm vecchio (la pagina restava ferma su "Carico l'emulatore").
+    let impronta = '';
+    try { impronta = (await (await fetch(new URL('../version.json', import.meta.url), { cache: 'no-store' })).json()).wasm || ''; } catch (e) { /* senza impronta si carica comunque */ }
     const { default: create86Box } = await import('../86Box.mjs');
     const self = this;
     this.module = await create86Box({
@@ -48,7 +54,7 @@ export class Emulator extends EventTarget {
       web86box: { onEvent: (type, payload) => self._onEvent(type, payload) },
       print: (t) => self._log('out', t),
       printErr: (t) => self._log('err', t),
-      locateFile: (path) => new URL(path, new URL('../', import.meta.url)).href,
+      locateFile: (path) => new URL(path, new URL('../', import.meta.url)).href + (impronta && path.endsWith('.wasm') ? `?v=${impronta}` : ''),
     });
     const shared = this.module._web_get_shared();
     this.wasm64 = typeof shared === 'bigint'; // Retro486: la build a 32 bit usa puntatori Number
