@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Retro486 - invia a Balthasar i dati iniziali preparati con tools/prepara-dati.sh:
-# hard disk C: compresso, libreria, supporti (floppy di MS-DOS, CD di Windows 3.11).
+# hard disk C: compresso e sua copia di fabbrica, libreria, supporti, pacchetto di Windows 3.11.
 #
 #   bash deploy/pubblica-dati.sh           # solo i file che sul server mancano
 #   bash deploy/pubblica-dati.sh --forza   # sovrascrive anche l'hard disk del server
@@ -24,4 +24,7 @@ if [[ -n $FORZA ]]; then
 else
   rsync "${OPZ[@]}" --ignore-existing data/dischi/c.img.gz data/dischi/c.json "$HOST:$DEST/dischi/"
 fi
-ssh "$HOST" "ls -la $DEST $DEST/dischi $DEST/media"
+# copia di fabbrica dell'hard disk (mai sovrascritta) e pacchetto di Windows 3.11 (tools/win311/)
+[[ -f data/dischi/fabbrica/c.img.gz ]] && rsync "${OPZ[@]}" --ignore-existing data/dischi/fabbrica/ "$HOST:$DEST/dischi/fabbrica/"
+[[ -f data/pacchetti/windows311.zip ]] && ssh "$HOST" "mkdir -p -m 2775 $DEST/pacchetti" && rsync "${OPZ[@]}" data/pacchetti/windows311.zip "$HOST:$DEST/pacchetti/"
+ssh "$HOST" "ls -la $DEST $DEST/dischi $DEST/dischi/fabbrica $DEST/pacchetti $DEST/media"

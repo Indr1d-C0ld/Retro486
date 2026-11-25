@@ -24,6 +24,7 @@ import * as S from './server.js';
 import { Disco, preparaAvvio } from './disco.js';
 import { readZip, writeZip } from '../zip.js';
 import { Rumori } from './rumori.js';
+import { adattaWindows, sceltePerHw } from './windows.js';
 import { creaCrt, PARAMS, PRESETS, loadCrtSettings, saveCrtSettings } from './crt.js';
 
 const root = document.getElementById('app');
@@ -561,6 +562,13 @@ async function pannelloDisco() {
             if (!(await confirm('Sostituire l\'hard disk di questo browser con quello del server? Le modifiche locali si perdono.', { title: 'Retro486', yes: 'Sostituisci', no: 'Annulla' }))) return;
             await storage.removeFile(S.hddRel()); app.disco = null; app.mostra('disco');
           }, '.r-danger'),
+          app.srv.fabbrica ? pulsante('Ripristina il disco di fabbrica', async () => {
+            if (!(await confirm('Riportare l\'hard disk di questo browser a com\'era appena preparato: solo MS-DOS e i giochi di serie? Quello che hai aggiunto dopo si perde in questo browser; sul server resta l\'ultimo disco salvato finché non salvi di nuovo.', { title: 'Retro486', yes: 'Ripristina', no: 'Annulla' }))) return;
+            const pd = progressDialog('Disco di fabbrica', 'Scarico dal server...');
+            try { await S.scaricaDisco({ ...app.srv.fabbrica, nome: 'c' }, (d, t, f) => pd.update(t ? d / t : 0, f === 'scarico' ? `Scarico: ${formatSize(d)} di ${formatSize(t)}` : `Scrivo: ${formatSize(d)}`)); S.segnaModificato(); }
+            catch (er) { pd.close(); messageBox({ title: 'Retro486', kind: 'error', text: er.message }); return; }
+            pd.close(); app.disco = null; app.mostra('disco');
+          }, '.r-danger') : null,
           pulsante('Scarica l\'immagine (.img)', async () => downloadBlob(await storage.getFile(S.hddRel()), 'retro486-c.img'))))));
 }
 
@@ -605,7 +613,76 @@ async function pannelloLibreria() {
           x.utente ? pulsante('Modifica', () => schedaGioco(x)) : null,
           x.utente ? pulsante('Rimuovi', () => rimuoviGioco(x), '.r-danger') : null)));
   }));
-  return h('div', null, barra, voci.length ? carte : riquadro('LIBRERIA', h('p', null, 'La libreria è vuota o il server non risponde.')));
+  const cartaWin = cartaWindows();
+  if (cartaWin) carte.prepend(cartaWin);
+  return h('div', null, barra, voci.length || cartaWin ? carte : riquadro('LIBRERIA', h('p', null, 'La libreria è vuota o il server non risponde.')));
+}
+
+// ---- Windows 3.11: una voce a parte, facoltativa. Si installa da un pacchetto sul server
+// (dati/pacchetti/windows311.zip, preparato con tools/win311/) e si avvia solo da qui o scrivendo WIN.
+const WINDOWS = { id: 'windows311', titolo: 'Windows 3.11', sottotitolo: 'Microsoft Windows 3.11 in italiano', editore: 'Microsoft', anno: 1993,
+  genere: 'Sistema operativo', cartella: 'C:\\WINDOWS', avvio: 'WIN', profilo: 'win31' };
+
+function cartaWindows() {
+  const v = app.disco?.vol;
+  const installato = !!v && v.exists('\\WINDOWS\\WIN.COM');
+  const pacchetto = app.srv.pacchetti?.windows311;
+  if (!installato && !pacchetto) return null;
+  const consigliato = app.profili.find((p) => p.id === WINDOWS.profilo);
+  const s = sceltePerHw(profilo().hw);
+  const conProfilo = `Con il profilo attuale: ${s.svga ? 'Super VGA a 256 colori' : 'VGA a 16 colori (per i 256 colori serve una Tseng ET4000)'}, ${s.sb ? 'audio Sound Blaster' : 'senza audio'}${s.mpu ? ', MIDI su MPU-401' : ''}.`;
+  return h('article.r-card', null,
+    h('div.r-card-cover', null, h('img', { src: 'assets/pixel/copertina.png', alt: '', onerror: (e) => e.target.replaceWith(h('span', null, 'W')) }), h('span.r-card-title', null, WINDOWS.titolo)),
+    h('div.r-card-body', null,
+      h('h3', null, WINDOWS.titolo), h('div.r-sub', null, WINDOWS.sottotitolo),
+      h('div.r-meta', null, 'Microsoft · 1993 · Sistema operativo'),
+      h('p', null, installato
+        ? `Program Manager, File Manager, Paint, Solitario e Prato fiorito. Facoltativo: il PC continua ad accendersi in MS-DOS, Windows parte solo da qui o scrivendo WIN. ${conProfilo}`
+        : 'Facoltativo: copia sull\'hard disk una installazione già pronta di Windows 3.11 (circa 9 MB in C:\\WINDOWS), con video a 256 colori e audio configurati. MS-DOS e i giochi restano come sono.'),
+      h('div.r-meta', null, installato ? 'C:\\WINDOWS\\WIN.COM' : 'NON INSTALLATO su questo disco'),
+      h('div.r-actions', null, ...(installato ? [
+        pulsante([pix('power'), 'Avvia'], () => accendi({ voce: WINDOWS }), '.r-big'),
+        consigliato && consigliato.id !== app.stato.profilo ? pulsante(`Avvia con "${consigliato.nome}"`, () => { app.stato.profilo = consigliato.id; saveStato(); accendi({ voce: WINDOWS }); }) : null,
+        pulsante('Apri cartella', () => { app.stato.cwd = '\\WINDOWS'; saveStato(); app.mostra('disco'); }),
+        pulsante('Rimuovi da C:', rimuoviWindows, '.r-danger'),
+      ] : [pulsante([pix('save'), 'Installa su C:'], installaWindows, '.r-big')]).filter(Boolean))));
+}
+
+async function installaWindows() {
+  const v = app.disco.vol;
+  if (v.exists('\\WINDOWS')) return messageBox({ title: 'Retro486', kind: 'warning', text: 'C:\\WINDOWS esiste già: rinominala o cancellala dal pannello HARD DISK prima di installare.' });
+  const pd = progressDialog('Windows 3.11', 'Scarico il pacchetto dal server...');
+  try {
+    const r = await fetch('dati/pacchetti/windows311.zip', { cache: 'no-store' });
+    if (!r.ok) throw new Error(`pacchetto non disponibile (HTTP ${r.status})`);
+    const file = (await readZip(await r.arrayBuffer())).filter((f) => !f.name.endsWith('/'));
+    const byte = file.reduce((a, f) => a + f.size, 0);
+    if (byte + file.length * v.clusterBytes > v.freeBytes) throw new Error(`spazio insufficiente su C: servono ${formatSize(byte)}, liberi ${formatSize(v.freeBytes)}`);
+    for (const [i, f] of file.entries()) {
+      if (i % 8 === 0) pd.update(i / file.length, `${f.name} (${i + 1} di ${file.length})`);
+      const parti = f.name.split('/');
+      v.mkdirp(`\\${parti.slice(0, -1).join('\\')}`);
+      v.writeFile(`\\${parti.join('\\')}`, await f.read());
+    }
+    const win = app.profili.find((p) => p.id === WINDOWS.profilo);
+    if (win) adattaWindows(v, win.hw);
+    pd.update(1, 'Scrivo sul disco...');
+    await app.disco.salva();
+  } catch (e) {
+    try { if (v.exists('\\WINDOWS')) v.remove('\\WINDOWS', { recursive: true }); await app.disco.salva(); } catch (e2) { console.warn(e2); }
+    pd.close();
+    return messageBox({ title: 'Windows 3.11', kind: 'error', text: `Installazione non riuscita: ${e.message}` });
+  }
+  pd.close();
+  await messageBox({ title: 'Windows 3.11', text: 'Windows 3.11 è in C:\\WINDOWS, sull\'hard disk di questo browser. Per ritrovarlo dagli altri dispositivi salva il disco sul server dal pannello HARD DISK.' });
+  app.mostra('libreria');
+}
+
+async function rimuoviWindows() {
+  if (!(await confirm('Cancellare C:\\WINDOWS con tutto il contenuto, compresi i documenti e i programmi che ci hai messo dentro?', { title: 'Windows 3.11', yes: 'Cancella', no: 'Annulla' }))) return;
+  app.disco.vol.remove('\\WINDOWS', { recursive: true });
+  await app.disco.salva();
+  app.mostra('libreria');
 }
 
 // Le voci aggiunte dal portale stanno sul server in dati/libreria-utente.json.

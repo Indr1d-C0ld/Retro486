@@ -10,6 +10,8 @@ mkdir -p data/dischi data/media data/nvr
 if [[ -f data/dischi/c.img ]]; then
   gzip -9 -k -f data/dischi/c.img
   echo "data/dischi/c.img.gz: $(du -h data/dischi/c.img.gz | cut -f1) (originale $(du -h --apparent-size data/dischi/c.img | cut -f1))"
+  # copia di fabbrica: il portale la usa per "Ripristina il disco di fabbrica"
+  mkdir -p data/dischi/fabbrica && cp -p data/dischi/c.img.gz data/dischi/fabbrica/c.img.gz
 fi
 
 # libreria per il portale: senza i percorsi di Melchior

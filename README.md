@@ -20,6 +20,7 @@ dischi, profili e supporti.
 - [Joystick e pad](#joystick-e-pad)
 - [Aggiungere giochi dal portale](#aggiungere-giochi-dal-portale)
 - [General MIDI](#general-midi)
+- [Windows 3.11](#windows-311)
 - [Durante il gioco](#durante-il-gioco)
 - [L'hard disk C:](#lhard-disk-c)
 - [Il monitor CRT](#il-monitor-crt)
@@ -96,7 +97,7 @@ Profili predefiniti:
 | Gaming Rig 1994 | i486DX2-66, 16 MB, S3 Trio64, SB16, MT-32 | tempo reale (JIT) |
 | Top di gamma 1995 | iDX4-100, 32 MB, S3 Trio64, SB16, MT-32 | tempo reale (JIT) |
 | PC economico 1991 | i486SX-25, 4 MB, ET4000, SB Pro 2 | tempo reale (interprete) |
-| Postazione Windows 3.11 | i486DX2-66, 16 MB, S3 Trio64, SB16 | esigente (interprete) |
+| Postazione Windows 3.11 | i486DX2-66, 16 MB, Tseng ET4000/W32, SB16, General MIDI | tempo reale (JIT) |
 
 ## Joystick e pad
 
@@ -139,6 +140,40 @@ misura il livello dell'uscita audio. Senza sintetizzatore il livello resta a zer
 giudicata a orecchio. I giochi della libreria con partitura per MT-32 (Larry 3) con un sintetizzatore
 General MIDI usano il driver AdLib.
 
+## Windows 3.11
+
+Facoltativo. Il PC continua ad accendersi in MS-DOS; Windows è una scheda della LIBRERIA.
+
+- **Installa su C:** copia in `C:\WINDOWS` una installazione già pronta (circa 9 MB), scaricata dal
+  server (`dati/pacchetti/windows311.zip`). Non tocca `CONFIG.SYS` né `AUTOEXEC.BAT`.
+- **Avvia** accende il PC ed esegue `WIN`. Si può anche scrivere `WIN` dal prompt, da `C:\WINDOWS`.
+- **Rimuovi da C:** cancella la cartella.
+
+A ogni accensione il portale adatta `SYSTEM.INI` all'hardware del profilo, usando solo i driver del CD
+originale (`app/js/retro/windows.js`):
+
+| Hardware del profilo | Windows usa |
+| --- | --- |
+| Tseng ET4000 (AX o W32) | Super VGA a 256 colori, di serie 800x600 |
+| qualsiasi altra scheda video | VGA 640x480 a 16 colori |
+| Sound Blaster (2.0, Pro, 16) | driver "Sound Blaster 1.5": audio a 8 bit mono, sintesi FM Ad Lib |
+| sintetizzatore MIDI con MPU-401 | MIDI su MPU-401 a 330h (MT-32 o General MIDI) |
+
+Il profilo *Postazione Windows 3.11* ha la ET4000/W32, la SB16 e il General MIDI. Un driver video
+installato a mano dentro Windows (per esempio quello della S3) non viene toccato. Sul CD manca
+`TADA.WAV`: all'avvio suona `CHIMES.WAV`.
+
+Il pacchetto si prepara su Melchior dal CD (non è nel repository):
+
+```bash
+node tools/win311/installa.mjs      # SETUP /H: dentro l'emulatore, circa 4 minuti
+node tools/win311/pacchetto.mjs     # aggiunge i driver, produce data/pacchetti/windows311.zip
+bash deploy/pubblica-dati.sh        # lo manda su Balthasar
+```
+
+Provato con `tools/dev/prova-windows.mjs`: installazione dal portale, avvio con il profilo Windows
+(256 colori) e con un profilo S3 (ripiego su VGA), suono di avvio, brano MIDI con Media Player.
+
 ## Durante il gioco
 
 Nella barra sopra il monitor: **Rumori** (accensione, ventola, testine dell'hard disk, floppy e CD,
@@ -168,6 +203,17 @@ riproducibile:
 Il risultato pesa 247 MB e, compresso, 6,5 MB: il browser lo scarica alla prima accensione e lo tiene
 nell'Origin Private File System. `app/js/fat.js` (FAT12/16, lettura e scrittura) è lo stesso modulo in Node
 e nel browser.
+
+**Tornare indietro.** Tre reti di sicurezza, tutte nel pannello HARD DISK:
+
+- *Riscarica dal server* butta le modifiche fatte in questo browser e riprende l'ultimo disco salvato.
+- A ogni *Salva l'hard disk sul server* il server tiene le tre versioni precedenti
+  (`dati/dischi/c.img.gz.1` … `.3`).
+- *Ripristina il disco di fabbrica* riporta il disco di questo browser a com'era appena preparato (solo
+  MS-DOS e i giochi di serie), da una copia che il server non sovrascrive mai
+  (`dati/dischi/fabbrica/c.img.gz`). Sul server resta l'ultimo disco salvato finché non si salva di nuovo.
+
+Il disco è uno solo per tutti i profili.
 
 ## Il monitor CRT
 
@@ -224,8 +270,8 @@ compilazione in tutto) e circa 470 restano all'interprete perché contengono ist
 - **Thread.** Si compila e si esegue solo sul thread della CPU: una funzione installata nella tabella
   di un thread non è chiamabile dagli altri.
 - **Interruttore.** `jit` nel profilo (`cpu_use_dynarec` in 86box.cfg) e la casella *Ricompilatore
-  dinamico (JIT)* in CONFIGURA. Acceso nei profili DX-33, DX2-66 e DX4-100; spento negli altri due, dove
-  non è stato verificato (486SX senza coprocessore, Windows 3.11).
+  dinamico (JIT)* in CONFIGURA. Acceso in tutti i profili tranne il 486SX-25, dove
+  non è stato verificato (CPU senza coprocessore).
 
 **Verifica.** La build con `-DWJIT_ORACLE` rifà con l'interprete ogni esecuzione di un blocco compilato
 e confronta registri, flag, segmenti, x87 e ogni byte scritto in RAM (`wasm-jit-oracle.c`, dall'oracolo di
@@ -251,7 +297,9 @@ vede.
 - Gli uop MMX e 3DNow! non sono implementati: i blocchi che li usano restano all'interprete (un 486
   non li esegue mai). REP MOVS/STOS e le istruzioni di I/O passano per i gestori dell'interprete.
 - L'oracolo verifica solo i blocchi "puri"; con le soglie scelte sono gli unici che si compilano. Non
-  sono stati verificati: modo protetto a 32 bit (Windows 3.11, DOS extender), CPU senza FPU, Pentium.
+  sono stati verificati: DOS extender a 32 bit, CPU senza FPU, Pentium. Windows 3.11 in modalità
+  386 avanzata è stato provato: avvio, Program Manager, suono di avvio e Media Player danno gli stessi
+  risultati con l'interprete e con il ricompilatore (`tools/dev/prova-windows.mjs`).
 - I puntatori dell'ultima istruzione x87 (FSTENV/FSAVE) sono aggiornati dal codice compilato solo con
   `cpu_dyn_accurate_fpu_env = 1`, come in 86Box nativo.
 - Ogni blocco compilato è un modulo wasm nel browser: al massimo 8.192 vivi insieme, oltre si
@@ -299,6 +347,7 @@ tools/
   prepara-dati.sh      data/: disco compresso, libreria, supporti
   costruisci.sh        dist/: 86Box + ROM + portale + api
   86box/               build di 86Box: build-wasm32-jit.sh, patch/, jit/ (backend WebAssembly del ricompilatore)
+  win311/              installa.mjs (SETUP senza intervento dentro l'emulatore), pacchetto.mjs, AUTO.SHH
   dev/                 misura.mjs, prova-jit.mjs, provajit/ (PROVAJIT.COM), profila.mjs, screenshot.mjs
   mbr/  disco/driver/  font/  pixellab/
 deploy/                pubblica.sh, pubblica-dati.sh, balthasar/ (Apache + installatore)

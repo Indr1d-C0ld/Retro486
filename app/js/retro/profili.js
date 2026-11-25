@@ -38,9 +38,9 @@ export const PREDEFINITI = [
   },
   {
     id: 'win31', nome: 'Postazione Windows 3.11', anno: 1994,
-    descrizione: 'DX2-66, 16 MB e S3 Trio64 per Windows per Workgroups 3.11.',
-    hw: { machine: 'vli486sv2g', cpu_family: 'i486dx2', cpu_speed: 66666666, ram: 16, video: 's3_trio64_vlb',
-      sound: 'sb16', midi: 'none', mpu: false, mouse: 'ps2', fdd_a: '35_2hd', fdd_b: 'none', cdrom: true },
+    descrizione: 'DX2-66, 16 MB e Tseng ET4000/W32 per Windows 3.11 a 256 colori, con General MIDI.',
+    hw: { machine: 'vli486sv2g', cpu_family: 'i486dx2', cpu_speed: 66666666, jit: true, ram: 16, video: 'et4000w32_vlb',
+      sound: 'sb16', midi: 'opl4-ml', mpu: true, mouse: 'ps2', fdd_a: '35_2hd', fdd_b: 'none', cdrom: true },
   },
 ];
 

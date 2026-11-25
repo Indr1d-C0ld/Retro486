@@ -7,6 +7,7 @@
 import * as storage from '../storage.js';
 import { openImage } from '../fat.js';
 import { hddRel, segnaModificato } from './server.js';
+import { adattaWindows } from './windows.js';
 
 const BLOCK = 65536;
 
@@ -98,5 +99,7 @@ export async function preparaAvvio({ voce = null, profilo = null } = {}) {
   } else if (v.exists(path)) {
     v.remove(path);
   }
+  // Windows 3.11, se c'è: driver video e audio secondo l'hardware con cui si accende
+  if (profilo?.hw) { try { adattaWindows(v, profilo.hw); } catch (e) { console.warn('[Retro486] SYSTEM.INI non adattato:', e.message); } }
   await d.salva();
 }

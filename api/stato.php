@@ -26,6 +26,11 @@ foreach (glob(DATI . '/media/*') ?: [] as $f) {
 }
 usort($media, fn($a, $b) => strcmp($a['nome'], $b['nome']));
 
+// pacchetti installabili dal portale (Windows 3.11) e copia di fabbrica dell'hard disk
+$pacchetti = [];
+foreach (glob(DATI . '/pacchetti/*.zip') ?: [] as $f) $pacchetti[basename($f, '.zip')] = filesize($f);
+$fabbrica = is_file(DATI . '/dischi/fabbrica/c.img.gz') ? ['file' => 'fabbrica/c.img.gz', 'byte_gz' => filesize(DATI . '/dischi/fabbrica/c.img.gz'), 'mtime' => filemtime(DATI . '/dischi/fabbrica/c.img.gz')] : null;
+
 $nvr = array_map(fn($f) => basename($f, '.nvr'), glob(DATI . '/nvr/*.nvr') ?: []);
 $versione = leggi_json(__DIR__ . '/../version.json', []);
 
@@ -36,4 +41,6 @@ rispondi([
     'profili' => leggi_json(DATI . '/profili.json', []),
     'media' => $media,
     'nvr' => $nvr,
+    'pacchetti' => (object) $pacchetti,
+    'fabbrica' => $fabbrica,
 ]);
