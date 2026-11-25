@@ -37,12 +37,12 @@ dischi, profili e supporti.
 | | |
 |---|---|
 | **Emulatore** | 86Box 7.0 (core originale) in WebAssembly a 32 bit con thread, dal port [Web86Box](https://github.com/Xeon3D/Web86Box), con il ricompilatore dinamico di 86Box portato a WebAssembly (interprete sempre disponibile) |
-| **Macchina di riferimento** | ASUS VL/I-486SV2GX4 (SiS 471, VLB, Award BIOS 4.51G) · Intel i486DX-33 · 8 MB · S3 86c805 VLB · Sound Blaster 16 · Roland MT-32 su MPU-401 |
-| **Configurabile** | 64 CPU reali per questa scheda (Intel, AMD, Cyrix: dal 486SX-20 al 5x86-160 e al Pentium OverDrive), ogni scheda madre 486 di 86Box con BIOS disponibile, RAM, video, audio, MIDI, mouse, floppy, CD-ROM, e il dialogo completo delle impostazioni di 86Box |
-| **Sistema** | MS-DOS 6.22 italiano, menu di avvio XMS+EMS / XMS / minimo, CD-ROM su D:, mouse, tastiera italiana, `BLASTER` impostato |
+| **Macchina di riferimento** | ASUS VL/I-486SV2GX4 (SiS 471, VLB, Award BIOS 4.51G) · Intel i486DX-33 · 8 MB · S3 86c805 VLB · Sound Blaster 16 · Roland MT-32 su MPU-401 (in alternativa General MIDI Yamaha OPL4-ML) |
+| **Configurabile** | 64 CPU reali per questa scheda (Intel, AMD, Cyrix: dal 486SX-20 al 5x86-160 e al Pentium OverDrive), ogni scheda madre 486 di 86Box con BIOS disponibile, RAM, video, audio, MIDI, joystick e pad, mouse, floppy, CD-ROM, e il dialogo completo delle impostazioni di 86Box |
+| **Sistema** | MS-DOS 6.22 italiano, menu di avvio XMS+EMS / XMS / minimo, CD-ROM su D:, mouse, tastiera italiana, `BLASTER` impostato. Facoltativo: Windows 3.11 già pronto, installabile dalla libreria |
 | **Giochi** | Libreria con avvio diretto, giochi aggiunti dal portale da un archivio ZIP; di serie Leisure Suit Larry 3 nella traduzione italiana di [melchior-larry3](https://github.com/Indr1d-C0ld/leisure-suit-larry-3-ita) |
-| **Monitor** | CRT in WebGL2 (curvatura, scanline, maschera dei fosfori, bloom, persistenza...) con ripiego su Canvas 2D senza GPU |
-| **Server** | Apache + PHP 8.4 su Balthasar: hard disk compresso (6,5 MB), profili, CMOS, floppy e CD; Basic Auth |
+| **Monitor** | CRT in WebGL2 (curvatura, scanline, maschera dei fosfori, bloom, persistenza...) con ripiego su Canvas 2D senza GPU; cornice sempre in 4:3, solo schermo, schermo intero, rumori d'epoca |
+| **Server** | Apache + PHP 8.4 su Balthasar: hard disk compresso (6,5 MB), copia di fabbrica, profili, CMOS, floppy e CD; Basic Auth |
 | **Browser** | Chrome, Edge, Firefox recenti (serve memory64: Safari no) |
 
 ## Immagini
@@ -56,7 +56,9 @@ dischi, profili e supporti.
 | ![Configura](docs/img/02-configura.png) | ![Hard disk](docs/img/03-hard-disk.png) |
 | CONFIGURA: scheda madre, CPU, RAM, video, audio, MIDI | HARD DISK: l'esplora-disco sul FAT16 del C: |
 | ![Libreria](docs/img/04-libreria.png) | ![Media](docs/img/05-media.png) |
-| LIBRERIA: avvio diretto dei giochi | MEDIA: i floppy di MS-DOS e il CD di Windows 3.11 |
+| LIBRERIA: avvio diretto dei giochi e Windows 3.11 da installare | MEDIA: i floppy di MS-DOS e il CD di Windows 3.11 |
+| ![Windows 3.11](docs/img/11-windows311.png) | ![Solo schermo](docs/img/12-solo-schermo.png) |
+| Windows 3.11 a 800x600 in 256 colori, installato dalla libreria | *Solo schermo*: il tubo catodico in 4:3 senza menu né barre |
 
 ## Il portale, sezione per sezione
 
@@ -67,13 +69,14 @@ linea con l'ombra, tasti funzione come in un programma DOS.
 |---|---|---|
 | **F1** | SISTEMA | Scheda tecnica della macchina, case con i MHz sul display a 7 segmenti, stato delle unità, accensione (**F10**) |
 | **F2** | CONFIGURA | Profili hardware predefiniti e personali (salvati sul server). Ogni scelta è filtrata sul catalogo di 86Box: solo CPU, schede e periferiche compatibili con la scheda madre. *Impostazioni avanzate 86Box* apre il dialogo completo (wait state, controller, porte, rete, configurazione di ogni dispositivo). Indica quanto è pesante la CPU scelta per il browser |
-| **F3** | HARD DISK | Esplora-disco del C: a macchina spenta: navigazione, anteprima testo/esadecimale, editor per AUTOEXEC.BAT e CONFIG.SYS (code page 437, lettere accentate comprese), caricamento di file e cartelle dal PC (nomi lunghi convertiti in 8.3), rinomina, eliminazione, nuova cartella. Riscrive solo i blocchi da 64 KB cambiati. Salvataggio dell'hard disk sul server, ripristino, download dell'immagine |
-| **F4** | LIBRERIA | Giochi installati con *Avvia*: il portale scrive `C:\RETRO486\AVVIO.BAT`, che AUTOEXEC.BAT esegue, e sceglie il driver audio del gioco in base al profilo (MT-32 o AdLib) |
+| **F3** | HARD DISK | Esplora-disco del C: a macchina spenta: navigazione, anteprima testo/esadecimale, editor per AUTOEXEC.BAT e CONFIG.SYS (code page 437, lettere accentate comprese), caricamento di file e cartelle dal PC anche per trascinamento (nomi lunghi convertiti in 8.3), download di una cartella come ZIP, rinomina, eliminazione, nuova cartella. Riscrive solo i blocchi da 64 KB cambiati. Salvataggio dell'hard disk sul server, ripristino, disco di fabbrica, download dell'immagine |
+| **F4** | LIBRERIA | Giochi installati con *Avvia*: il portale scrive `C:\RETRO486\AVVIO.BAT`, che AUTOEXEC.BAT esegue, e sceglie il driver audio del gioco in base al profilo (MT-32 o AdLib). *Aggiungi un gioco* da un archivio ZIP. Scheda facoltativa di Windows 3.11 |
 | **F5** | MEDIA | Floppy e CD da inserire all'accensione; a macchina accesa si cambiano dal menu Media |
 | **F6** | MONITOR | Il CRT emulato: preset, regolazioni, anteprima |
 
 La macchina accesa usa la finestra di Web86Box (menu Action/View/Media/Tools, barra di stato con l'attività
-dei dischi) dentro la cornice del monitor pixel art. *Torna al portale* spegne il PC.
+dei dischi) dentro la cornice del monitor pixel art, sempre in 4:3. Sopra il monitor: *Rumori*, *Solo schermo*, *CRT*,
+*Schermo intero*. *Torna al portale* spegne il PC.
 
 ## La macchina emulata
 
@@ -94,8 +97,8 @@ Profili predefiniti:
 | Profilo | Macchina | Nel browser |
 |---|---|---|
 | IBM compatibile 1992 | i486DX-33, 8 MB, S3 805, SB16, MT-32 | tempo reale (JIT) |
-| Gaming Rig 1994 | i486DX2-66, 16 MB, S3 Trio64, SB16, MT-32 | tempo reale (JIT) |
-| Top di gamma 1995 | iDX4-100, 32 MB, S3 Trio64, SB16, MT-32 | tempo reale (JIT) |
+| Gaming Rig 1994 | i486DX2-66, 16 MB, S3 Trio64, SB16, General MIDI | tempo reale (JIT) |
+| Top di gamma 1995 | iDX4-100, 32 MB, S3 Trio64, SB16, General MIDI | tempo reale (JIT) |
 | PC economico 1991 | i486SX-25, 4 MB, ET4000, SB Pro 2 | tempo reale (interprete) |
 | Postazione Windows 3.11 | i486DX2-66, 16 MB, Tseng ET4000/W32, SB16, General MIDI | tempo reale (JIT) |
 
@@ -395,7 +398,8 @@ ln -sfn ../data dist/dati
 php -S 127.0.0.1:8486 -t dist tools/dev/router.php
 ```
 
-Screenshot del README: `node tools/dev/screenshot.mjs` (Chromium headless con WebGL software).
+Screenshot del README: `node tools/dev/screenshot.mjs` (Chromium headless con WebGL software). Prove: `prova-joystick`,
+`prova-libreria`, `prova-midi`, `prova-scambio`, `prova-windows`, `prova-fabbrica` in `tools/dev/`.
 
 ## Pubblicazione su Balthasar
 
