@@ -100,7 +100,7 @@ Profili predefiniti:
 | Gaming Rig 1994 | i486DX2-66, 16 MB, S3 Trio64, SB16, General MIDI | tempo reale (JIT) |
 | Top di gamma 1995 | iDX4-100, 32 MB, S3 Trio64, SB16, General MIDI | tempo reale (JIT) |
 | PC economico 1991 | i486SX-25, 4 MB, ET4000, SB Pro 2 | tempo reale (interprete) |
-| Postazione Windows 3.11 | i486DX2-66, 16 MB, Tseng ET4000/W32, SB16, General MIDI | tempo reale (JIT) |
+| Postazione Windows 3.11 | i486DX2-66, 16 MB, Tseng ET4000/W32, SB16, General MIDI | circa metà velocità con Windows (JIT), vedi sotto |
 
 ## Joystick e pad
 
@@ -173,6 +173,11 @@ node tools/win311/installa.mjs      # SETUP /H: dentro l'emulatore, circa 4 minu
 node tools/win311/pacchetto.mjs     # aggiunge i driver, produce data/pacchetti/windows311.zip
 bash deploy/pubblica-dati.sh        # lo manda su Balthasar
 ```
+
+**Velocità.** Nelle prove (Chromium senza finestra, grafica software, Melchior sotto carico) Windows sul
+DX2-66 gira al 50-60% con il ricompilatore e al 40-45% con l'interprete, mentre un gioco DOS sullo stesso
+profilo tiene il 100%. Su un browser con GPU non è stato misurato. Se va a scatti, in CONFIGURA si può
+scendere a un DX-33.
 
 Provato con `tools/dev/prova-windows.mjs`: installazione dal portale, avvio con il profilo Windows
 (256 colori) e con un profilo S3 (ripiego su VGA), suono di avvio, brano MIDI con Media Player.
