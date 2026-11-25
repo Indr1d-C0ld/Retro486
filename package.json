@@ -1,6 +1,6 @@
 {
   "name": "retro486",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "private": true,
   "description": "Retro486: un PC 486 emulato con 86Box nel browser, servito da Balthasar",
   "type": "module",
