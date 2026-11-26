@@ -9,7 +9,7 @@ dischi, profili e supporti.
 
 ![Il portale: la scheda SISTEMA](docs/img/01-sistema.png)
 
-> Indirizzo: https://example.org/retro486/ (privato, con password).
+> Indirizzo: https://example.org/retro486/ (aperto a tutti; scrive sul server solo l'admin).
 
 ## Indice
 
@@ -21,6 +21,7 @@ dischi, profili e supporti.
 - [Aggiungere giochi dal portale](#aggiungere-giochi-dal-portale)
 - [General MIDI](#general-midi)
 - [Windows 3.11](#windows-311)
+- [Chi può fare cosa](#chi-può-fare-cosa)
 - [Durante il gioco](#durante-il-gioco)
 - [L'hard disk C:](#lhard-disk-c)
 - [Il monitor CRT](#il-monitor-crt)
@@ -42,7 +43,7 @@ dischi, profili e supporti.
 | **Sistema** | MS-DOS 6.22 italiano, menu di avvio XMS+EMS / XMS / minimo, CD-ROM su D:, mouse, tastiera italiana, `BLASTER` impostato. Facoltativo: Windows 3.11 già pronto, installabile dalla libreria |
 | **Giochi** | Libreria con avvio diretto, giochi aggiunti dal portale da un archivio ZIP; di serie Leisure Suit Larry 3 nella traduzione italiana di [melchior-larry3](https://github.com/Indr1d-C0ld/leisure-suit-larry-3-ita) |
 | **Monitor** | CRT in WebGL2 (curvatura, scanline, maschera dei fosfori, bloom, persistenza...) con ripiego su Canvas 2D senza GPU; cornice sempre in 4:3, solo schermo, schermo intero, rumori d'epoca |
-| **Server** | Apache + PHP 8.4 su Balthasar: hard disk compresso (6,5 MB), copia di fabbrica, profili, CMOS, floppy e CD; Basic Auth |
+| **Server** | Apache + PHP 8.4 su Balthasar: hard disk compresso (6,5 MB), copia di fabbrica, profili, CMOS, floppy e CD; sito aperto, scritture solo per l'admin (Basic Auth) |
 | **Browser** | Chrome, Edge, Firefox recenti (serve memory64: Safari no) |
 
 ## Immagini
@@ -181,6 +182,27 @@ scendere a un DX-33.
 
 Provato con `tools/dev/prova-windows.mjs`: installazione dal portale, avvio con il profilo Windows
 (256 colori) e con un profilo S3 (ripiego su VGA), suono di avvio, brano MIDI con Media Player.
+
+## Chi può fare cosa
+
+Il sito è aperto a tutti, senza password. Ognuno gioca con la **sua** copia dell'hard disk: il browser la
+scarica alla prima accensione e la tiene nel proprio storage (OPFS). Giochi aggiunti, salvataggi, file
+trascinati e Windows installato restano in quel browser e nessun altro li vede; se si cancellano i dati
+del sito si perdono (*Scarica l'immagine* ne fa una copia).
+
+| | Ospite (chiunque) | Admin |
+|---|---|---|
+| Giocare, configurare, installare Windows, usare HARD DISK | sì, nel proprio browser | sì |
+| Profili personali | nel proprio browser | sul server, per tutti |
+| *Salva l'hard disk sul server* | no | sì |
+| *Aggiungi un gioco*, modifica e rimozione delle schede | no | sì |
+| Supporti, CMOS sul server | no | sì |
+
+L'admin entra con *Accedi* nella barra di stato: `api/accedi.php` chiede l'account (Basic Auth di Apache,
+`/etc/apache2/.htpasswd-retro486`) e da lì il browser lo manda con ogni scrittura. Apache rifiuta in
+`api/` ogni metodo diverso da GET senza password (`deploy/balthasar/retro486.conf`), e le API lo
+ricontrollano (`admin()` in `api/_comune.php`). *ADMIN · Esci* riporta il portale in modalità ospite.
+Prova: `node tools/dev/prova-ospite.mjs`.
 
 ## Durante il gioco
 
@@ -404,7 +426,7 @@ php -S 127.0.0.1:8486 -t dist tools/dev/router.php
 ```
 
 Screenshot del README: `node tools/dev/screenshot.mjs` (Chromium headless con WebGL software). Prove: `prova-joystick`,
-`prova-libreria`, `prova-midi`, `prova-scambio`, `prova-windows`, `prova-fabbrica` in `tools/dev/`.
+`prova-libreria`, `prova-midi`, `prova-scambio`, `prova-windows`, `prova-fabbrica`, `prova-ospite` in `tools/dev/`.
 
 ## Pubblicazione su Balthasar
 
@@ -438,4 +460,5 @@ Il codice è **GPL-2.0 o successiva**, come 86Box e Web86Box (`LICENSE`). Il fon
 LGPL; CuteMouse e UDVD2 vengono da FreeDOS (GPL / liberi con sorgenti).
 
 **Non sono nel repository**: MS-DOS 6.22 e Windows 3.11, i giochi, le ROM dei BIOS (set di 86Box) e quelle
-della Roland MT-32. Il sito è protetto da password proprio perché li serve.
+della Roland MT-32. Dalla 0.6 il sito è aperto a chiunque per scelta del proprietario, quindi li serve a chi lo visita: è
+una scelta che resta sua.

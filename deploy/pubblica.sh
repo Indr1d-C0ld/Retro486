@@ -39,6 +39,8 @@ rsync -rltz --delete --delay-updates $DRY \
 [[ -n $DRY ]] && exit 0
 echo "== verifica =="
 code=$(curl -s -o /dev/null -w '%{http_code}' "$URL")
+scrivi=$(curl -s -o /dev/null -w '%{http_code}' -X PUT -H 'X-Retro486: 1' -H 'Content-Type: application/json' --data '[]' "${URL}api/profili.php")
 ver=$(ssh "$HOST" "cat $DEST/version.json" | node -pe 'JSON.parse(require("fs").readFileSync(0)).commit' 2>/dev/null || echo "?")
-echo "   $URL -> HTTP $code (401 = password richiesta, come deve essere), commit pubblicato $ver"
-[[ $code == 401 && $ver == "$COMMIT" ]]
+echo "   $URL -> HTTP $code (200: aperto a tutti), commit pubblicato $ver"
+echo "   scrittura senza password -> HTTP $scrivi (401: solo l'admin scrive sul server)"
+[[ $code == 200 && $scrivi == 401 && $ver == "$COMMIT" ]]

@@ -30,7 +30,16 @@ function metodo(string ...$ammessi): string {
     if ($m !== 'GET' && ($_SERVER['HTTP_X_RETRO486'] ?? '') !== '1') {
         errore('Intestazione X-Retro486 mancante', 403);
     }
+    if ($m !== 'GET' && !admin()) errore('Solo l\'amministratore può scrivere sul server', 403);
     return $m;
+}
+
+// Admin: l'utente autenticato da Apache (Basic Auth, vedi deploy/balthasar/retro486.conf).
+// Apache chiede la password per ogni scrittura: questo controllo e' una seconda difesa.
+// Nel server di sviluppo (php -S) si e' admin, salvo R486_OSPITE=1 nell'ambiente.
+function admin(): bool {
+    if (PHP_SAPI === 'cli-server') return getenv('R486_OSPITE') !== '1';
+    return ($_SERVER['REMOTE_USER'] ?? '') !== '';
 }
 
 function nome_sicuro(string $n, string $re = '/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/'): string {

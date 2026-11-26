@@ -41,6 +41,7 @@ rispondi([
     'profili' => leggi_json(DATI . '/profili.json', []),
     'media' => $media,
     'nvr' => $nvr,
+    'sviluppo' => PHP_SAPI === 'cli-server',
     'pacchetti' => (object) $pacchetti,
     'fabbrica' => $fabbrica,
 ]);

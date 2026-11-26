@@ -18,7 +18,7 @@ install -m 644 "$QUI/retro486.conf" "$CONF"
 
 PW=/etc/apache2/.htpasswd-retro486
 if [[ ! -f $PW ]]; then
-  echo "Scegli la password per l'utente '$UTENTE' di Retro486:"
+  echo "Scegli la password dell'amministratore '$UTENTE' di Retro486 (serve solo per scrivere sul server):"
   htpasswd -c "$PW" "$UTENTE"
   chown root:www-data "$PW"; chmod 640 "$PW"
 else

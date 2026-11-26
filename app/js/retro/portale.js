@@ -29,10 +29,16 @@ import { creaCrt, PARAMS, PRESETS, loadCrtSettings, saveCrtSettings } from './cr
 
 const root = document.getElementById('app');
 const STATO = 'retro486.stato'; // { profilo, media: { a, b, cd }, scheda }
+// Il sito è aperto a tutti: ognuno gioca con la sua copia dell'hard disk nel browser. Solo l'admin
+// (Basic Auth di Apache su api/accedi.php e sulle scritture in api/) scrive sul server.
+const RUOLO = 'retro486.ruolo'; // 'admin' | 'ospite'
+const PROFILI_LOCALI = 'retro486.profili'; // i profili personali di un ospite
+const leggiLocale = (k, predef) => { try { return JSON.parse(localStorage.getItem(k)) ?? predef; } catch (e) { return predef; } };
+const scriviLocale = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* privato */ } };
 
 const app = {
   emu: null, catalog: null, srv: null, profili: [], stato: { profilo: 'dx33', media: {}, scheda: 'sistema' },
-  disco: null, crt: loadCrtSettings(),
+  disco: null, crt: loadCrtSettings(), admin: false,
 };
 
 function loadStato() {
@@ -77,6 +83,9 @@ async function main() {
   await storage.requestPersistence();
   const [srv] = await Promise.all([S.stato()]);
   app.srv = srv;
+  if (new URLSearchParams(location.search).has('admin')) { scriviLocale(RUOLO, 'admin'); history.replaceState(null, '', location.pathname); }
+  // di serie: ospite sul sito pubblicato, admin nel server di sviluppo
+  app.admin = leggiLocale(RUOLO, srv.sviluppo ? 'admin' : 'ospite') === 'admin' && !srv.offline;
   bar.style.width = '40%';
 
   const emu = new Emulator({ canvas: document.createElement('canvas') });
@@ -96,7 +105,9 @@ async function main() {
   app.catalog = new Catalog(await cat);
   bar.style.width = '100%';
 
-  app.profili = [...P.PREDEFINITI.map((p) => ({ ...p, predefinito: true })), ...(srv.profili || [])];
+  // per un ospite i profili salvati sul server valgono come predefiniti; i suoi restano nel browser
+  app.profili = [...P.PREDEFINITI.map((p) => ({ ...p, predefinito: true })),
+    ...(app.admin ? (srv.profili || []) : [...(srv.profili || []).map((p) => ({ ...p, predefinito: true })), ...leggiLocale(PROFILI_LOCALI, [])])];
   if (!app.profili.some((p) => p.id === app.stato.profilo)) app.stato.profilo = app.profili[0].id;
 
   if (new URLSearchParams(location.search).get('accendi')) {
@@ -141,6 +152,9 @@ function portale() {
     h('span', null, h('span.k', null, 'F10'), ' Accendi'),
     h('span', null, h('span.k', null, 'F1-F6'), ' Sezioni'),
     h('span.r-grow', null, app.srv.offline ? 'Server non raggiungibile: modalità locale' : `Server Balthasar collegato · ${app.srv.versione || ''}`),
+    app.srv.offline ? null : app.admin
+      ? h('button.r-mini', { type: 'button', title: 'Torna ospite: le scritture sul server spariscono dal portale', onclick: () => { scriviLocale(RUOLO, 'ospite'); location.reload(); } }, 'ADMIN · Esci')
+      : h('button.r-mini', { type: 'button', title: 'Accesso dell\'amministratore', onclick: () => { location.href = 'api/accedi.php'; } }, 'Accedi'),
     orologio,
   );
 
@@ -353,12 +367,13 @@ async function pannelloConfigura() {
   };
 
   disegnaElenco(); disegnaForm();
-  wrap.append(riquadro('PROFILI', elenco, h('p.r-note', null, 'I profili personali sono salvati sul server.')), form);
+  wrap.append(riquadro('PROFILI', elenco, h('p.r-note', null, app.admin ? 'I profili personali sono salvati sul server.' : 'I tuoi profili personali restano in questo browser.')), form);
   return wrap;
 }
 
 async function salvaProfiliServer() {
   const personali = app.profili.filter((p) => !p.predefinito).map(({ _extraTemp, ...p }) => p);
+  if (!app.admin) { scriviLocale(PROFILI_LOCALI, personali); return; }
   try { await S.salvaProfili(personali); } catch (e) { messageBox({ title: 'Retro486', kind: 'warning', text: `Profilo salvato solo in questa pagina: il server non risponde.\n${e.message}` }); }
 }
 
@@ -547,10 +562,12 @@ async function pannelloDisco() {
       h('div.r-file.r-file-head', null, h('span.n', null, 'NOME'), h('span.s', null, 'BYTE'), h('span.d', null, 'DATA'), h('span.a', null, 'ATTR')),
       lista, piede, azioni),
     h('div', null, anteprima,
-      riquadro('SERVER',
-        h('p.r-note', null, info?.modificato ? 'La copia in questo browser ha modifiche che il server non ha.' : 'La copia in questo browser è allineata al server.'),
+      riquadro(app.admin ? 'SERVER' : 'IL TUO DISCO',
+        h('p.r-note', null, !app.admin
+          ? 'Questo hard disk è tuo: giochi, salvataggi e file restano in questo browser e nessun altro li vede. Se cancelli i dati del sito li perdi: per tenerne una copia usa "Scarica l\'immagine".'
+          : info?.modificato ? 'La copia in questo browser ha modifiche che il server non ha.' : 'La copia in questo browser è allineata al server.'),
         h('div.r-actions', null,
-          pulsante([pix('save'), 'Salva l\'hard disk sul server'], async () => {
+          !app.admin ? null : pulsante([pix('save'), 'Salva l\'hard disk sul server'], async () => {
             if (app.disco?.modificato && !(await confirm('Ci sono modifiche non ancora scritte sul disco: salvarle prima?', { title: 'Retro486', yes: 'Sì', no: 'No' }))) return;
             if (app.disco?.modificato) await app.disco.salva();
             const pd = progressDialog('Salvataggio sul server', 'Comprimo...');
@@ -559,11 +576,11 @@ async function pannelloDisco() {
             pd.close(); app.srv = await S.stato(); app.mostra('disco');
           }),
           pulsante('Riscarica dal server', async () => {
-            if (!(await confirm('Sostituire l\'hard disk di questo browser con quello del server? Le modifiche locali si perdono.', { title: 'Retro486', yes: 'Sostituisci', no: 'Annulla' }))) return;
+            if (!(await confirm(app.admin ? 'Sostituire l\'hard disk di questo browser con quello del server? Le modifiche locali si perdono.' : 'Sostituire il tuo hard disk con quello del server? Giochi aggiunti, salvataggi e file di questo browser si perdono.', { title: 'Retro486', yes: 'Sostituisci', no: 'Annulla' }))) return;
             await storage.removeFile(S.hddRel()); app.disco = null; app.mostra('disco');
           }, '.r-danger'),
           app.srv.fabbrica ? pulsante('Ripristina il disco di fabbrica', async () => {
-            if (!(await confirm('Riportare l\'hard disk di questo browser a com\'era appena preparato: solo MS-DOS e i giochi di serie? Quello che hai aggiunto dopo si perde in questo browser; sul server resta l\'ultimo disco salvato finché non salvi di nuovo.', { title: 'Retro486', yes: 'Ripristina', no: 'Annulla' }))) return;
+            if (!(await confirm('Riportare l\'hard disk di questo browser a com\'era appena preparato: solo MS-DOS e i giochi di serie? Quello che hai aggiunto dopo si perde in questo browser' + (app.admin ? '; sul server resta l\'ultimo disco salvato finché non salvi di nuovo.' : '.'), { title: 'Retro486', yes: 'Ripristina', no: 'Annulla' }))) return;
             const pd = progressDialog('Disco di fabbrica', 'Scarico dal server...');
             try { await S.scaricaDisco({ ...app.srv.fabbrica, nome: 'c' }, (d, t, f) => pd.update(t ? d / t : 0, f === 'scarico' ? `Scarico: ${formatSize(d)} di ${formatSize(t)}` : `Scrivo: ${formatSize(d)}`)); S.segnaModificato(); }
             catch (er) { pd.close(); messageBox({ title: 'Retro486', kind: 'error', text: er.message }); return; }
@@ -593,7 +610,7 @@ async function pannelloLibreria() {
     }
   } catch (e) { console.warn(e); }
 
-  const barra = h('div.r-actions', { style: { marginBottom: '24px' } },
+  const barra = !app.admin ? h('div') : h('div.r-actions', { style: { marginBottom: '24px' } },
     pulsante([pix('library'), 'Aggiungi un gioco...'], () => schedaGioco(), '.r-big'),
     h('span.r-note', null, 'Da un archivio ZIP con i file del gioco, o da una cartella già presente in C:\\GIOCHI.'));
   const carte = h('div.r-cards', null, ...voci.map((x) => {
@@ -610,8 +627,8 @@ async function pannelloLibreria() {
           pulsante([pix('power'), 'Avvia'], () => accendi({ voce: x }), '.r-big'),
           consigliato && consigliato.id !== app.stato.profilo ? pulsante(`Avvia con "${consigliato.nome}"`, () => { app.stato.profilo = consigliato.id; saveStato(); accendi({ voce: x }); }) : null,
           pulsante('Apri cartella', () => { app.stato.cwd = x.cartella.replace(/^C:/i, ''); saveStato(); app.mostra('disco'); }),
-          x.utente ? pulsante('Modifica', () => schedaGioco(x)) : null,
-          x.utente ? pulsante('Rimuovi', () => rimuoviGioco(x), '.r-danger') : null)));
+          x.utente && app.admin ? pulsante('Modifica', () => schedaGioco(x)) : null,
+          x.utente && app.admin ? pulsante('Rimuovi', () => rimuoviGioco(x), '.r-danger') : null)));
   }));
   const cartaWin = cartaWindows();
   if (cartaWin) carte.prepend(cartaWin);
@@ -674,7 +691,7 @@ async function installaWindows() {
     return messageBox({ title: 'Windows 3.11', kind: 'error', text: `Installazione non riuscita: ${e.message}` });
   }
   pd.close();
-  await messageBox({ title: 'Windows 3.11', text: 'Windows 3.11 è in C:\\WINDOWS, sull\'hard disk di questo browser. Per ritrovarlo dagli altri dispositivi salva il disco sul server dal pannello HARD DISK.' });
+  await messageBox({ title: 'Windows 3.11', text: app.admin ? 'Windows 3.11 è in C:\\WINDOWS, sull\'hard disk di questo browser. Per ritrovarlo dagli altri dispositivi salva il disco sul server dal pannello HARD DISK.' : 'Windows 3.11 è in C:\\WINDOWS, sull\'hard disk di questo browser.' });
   app.mostra('libreria');
 }
 
