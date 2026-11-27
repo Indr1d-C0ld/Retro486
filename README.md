@@ -41,7 +41,7 @@ dischi, profili e supporti.
 | **Macchina di riferimento** | ASUS VL/I-486SV2GX4 (SiS 471, VLB, Award BIOS 4.51G) · Intel i486DX-33 · 8 MB · S3 86c805 VLB · Sound Blaster 16 · Roland MT-32 su MPU-401 (in alternativa General MIDI Yamaha OPL4-ML) |
 | **Configurabile** | 64 CPU reali per questa scheda (Intel, AMD, Cyrix: dal 486SX-20 al 5x86-160 e al Pentium OverDrive), ogni scheda madre 486 di 86Box con BIOS disponibile, RAM, video, audio, MIDI, joystick e pad, mouse, floppy, CD-ROM, e il dialogo completo delle impostazioni di 86Box |
 | **Sistema** | MS-DOS 6.22 italiano, menu di avvio XMS+EMS / XMS / minimo, CD-ROM su D:, mouse, tastiera italiana, `BLASTER` impostato. Facoltativo: Windows 3.11 già pronto, installabile dalla libreria |
-| **Giochi** | Libreria con avvio diretto, giochi aggiunti dal portale da un archivio ZIP; di serie Leisure Suit Larry 3 nella traduzione italiana di [melchior-larry3](https://github.com/Indr1d-C0ld/leisure-suit-larry-3-ita) |
+| **Giochi** | Libreria con avvio diretto, giochi aggiunti dal portale da un archivio ZIP; di serie Leisure Suit Larry 3 nella traduzione italiana di [melchior-larry3](https://github.com/Indr1d-C0ld/leisure-suit-larry-3-ita) e Faery Tale Adventure II nel restauro italiano di [melchior-fta2](https://github.com/Indr1d-C0ld/faery-tale-adventure-2-ita), con i dati su un CD che il portale inserisce da sé |
 | **Monitor** | CRT in WebGL2 (curvatura, scanline, maschera dei fosfori, bloom, persistenza...) con ripiego su Canvas 2D senza GPU; cornice sempre in 4:3, solo schermo, schermo intero, rumori d'epoca |
 | **Server** | Apache + PHP 8.4 su Balthasar: hard disk compresso (6,5 MB), copia di fabbrica, profili, CMOS, floppy e CD; sito aperto, scritture solo per l'admin (Basic Auth) |
 | **Browser** | Chrome, Edge, Firefox recenti (serve memory64: Safari no) |
@@ -60,6 +60,8 @@ dischi, profili e supporti.
 | LIBRERIA: avvio diretto dei giochi e Windows 3.11 da installare | MEDIA: i floppy di MS-DOS e il CD di Windows 3.11 |
 | ![Windows 3.11](docs/img/11-windows311.png) | ![Solo schermo](docs/img/12-solo-schermo.png) |
 | Windows 3.11 a 800x600 in 256 colori, installato dalla libreria | *Solo schermo*: il tubo catodico in 4:3 senza menu né barre |
+| ![Faery Tale Adventure II](docs/img/13-fta2.png) | |
+| Faery Tale Adventure II in italiano a 640x480 VESA, con immagini e voci dal CD su D: | |
 
 ## Il portale, sezione per sezione
 
@@ -229,6 +231,17 @@ riproducibile:
    `KEYB IT`, `BLASTER=A220 I5 D1 H5 P330 T6`, avvio dei giochi).
 7. **Driver liberi** in `C:\DRIVERS`: CuteMouse e UDVD2 da FreeDOS (`tools/disco/driver`).
 8. **Giochi** di `tools/libreria.json` in `C:\GIOCHI`.
+
+**Giochi con un CD.** Una voce di `tools/libreria.json` può avere un campo `cd` con il nome di
+un'immagine in `dati/media`. All'avvio dalla libreria il portale la mette nel lettore da sé, se il
+profilo ha il CD-ROM. Così sul C: resta solo la parte piccola del gioco. È il caso di Faery Tale
+Adventure II:
+- in `C:\GIOCHI\FTA2` ci sono l'eseguibile, i driver audio e gli archivi tradotti (4 MB);
+- immagini, suoni e voci (288 MB) stanno su `fta2-dati.iso`, letto da `D:\FTA2`.
+
+Il gioco va avviato con il profilo *Top di gamma 1995*, che ha CD-ROM, 32 MB e VESA. Gli strumenti
+`tools/crea_dos.sh` e `tools/crea_iso.py` del progetto melchior-fta2 preparano sia la cartella sia
+l'ISO dalla copia originale. `prepara-dati.sh` copia poi l'ISO in `data/media`.
 
 Il risultato pesa 247 MB e, compresso, 6,5 MB: il browser lo scarica alla prima accensione e lo tiene
 nell'Origin Private File System. `app/js/fat.js` (FAT12/16, lettura e scrittura) è lo stesso modulo in Node

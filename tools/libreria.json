@@ -17,6 +17,21 @@
         "adlib": { "file": "RESOURCE.CFG", "chiave": "soundDrv", "valore": "ADL.DRV" }
       },
       "note": "Si gioca scrivendo i comandi in italiano: guarda la ragazza, prendi il telo, inventario. Musica per Roland MT-32 o AdLib."
+    },
+    {
+      "id": "fta2",
+      "titolo": "Faery Tale Adventure II",
+      "sottotitolo": "Halls of the Dead — restauro e traduzione italiana",
+      "editore": "The Dreamers Guild",
+      "anno": 1997,
+      "genere": "Gioco di ruolo",
+      "sorgente": "~/Claude/melchior-fta2/build/dos/FTA2",
+      "cartella": "C:\\GIOCHI\\FTA2",
+      "avvio": "FTA2.EXE",
+      "profilo": "dx4-100",
+      "cd": "fta2-dati.iso",
+      "copertina": "fta2.png",
+      "note": "Testi, libri e nomi in italiano, voci in inglese con i sottotitoli. Immagini, suoni e voci si leggono dal CD (D:), che si inserisce da solo. Serve memoria estesa: profilo da 32 MB consigliato. Restauro: github.com/Indr1d-C0ld/faery-tale-adventure-2-ita"
     }
   ]
 }

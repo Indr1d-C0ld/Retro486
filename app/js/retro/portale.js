@@ -622,7 +622,7 @@ async function pannelloLibreria() {
         h('h3', null, x.titolo), x.sottotitolo ? h('div.r-sub', null, x.sottotitolo) : null,
         h('div.r-meta', null, [x.editore, x.anno, x.genere].filter(Boolean).join(' · ')),
         h('p', null, x.note || ''),
-        h('div.r-meta', null, `${x.cartella}\\${x.avvio}`, inst === false ? ' · NON INSTALLATO su questo disco' : ''),
+        h('div.r-meta', null, `${x.cartella}\\${x.avvio}`, x.cd ? ` · CD: ${(app.srv.media || []).find((m) => m.file === x.cd)?.nome || x.cd}` : '', inst === false ? ' · NON INSTALLATO su questo disco' : ''),
         h('div.r-actions', null,
           pulsante([pix('power'), 'Avvia'], () => accendi({ voce: x }), '.r-big'),
           consigliato && consigliato.id !== app.stato.profilo ? pulsante(`Avvia con "${consigliato.nome}"`, () => { app.stato.profilo = consigliato.id; saveStato(); accendi({ voce: x }); }) : null,
@@ -975,8 +975,13 @@ async function accendi({ voce = null, hwTemp = null } = {}) {
   await preparaAvvio({ voce, profilo: p });
   await S.preparaNvr(p.hw.machine, app.srv);
 
-  // supporti
-  const media = app.stato.media || {};
+  // supporti; un gioco della libreria con un CD suo (voce.cd) lo inserisce da sé nel lettore
+  const media = { ...(app.stato.media || {}) };
+  if (voce?.cd) {
+    if (!p.hw.cdrom) await messageBox({ title: 'Retro486', kind: 'warning', text: `${voce.titolo} legge i dati dal CD, ma il profilo "${p.nome}" non ha il lettore CD-ROM.` });
+    else if (!(app.srv.media || []).some((x) => x.file === voce.cd)) await messageBox({ title: 'Retro486', kind: 'warning', text: `Il CD di ${voce.titolo} (${voce.cd}) non è sul server.` });
+    else media.cd = voce.cd;
+  }
   const m = (k) => (app.srv.media || []).find((x) => x.file === media[k]);
   const percorsi = {};
   for (const k of ['a', 'b', 'cd']) {

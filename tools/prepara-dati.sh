@@ -14,6 +14,10 @@ if [[ -f data/dischi/c.img ]]; then
   mkdir -p data/dischi/fabbrica && cp -p data/dischi/c.img.gz data/dischi/fabbrica/c.img.gz
 fi
 
+# copertine dei giochi di serie (dati/libreria/<copertina>)
+mkdir -p data/libreria
+for f in media/giochi/*.png; do [[ -f $f ]] && cp -u "$f" data/libreria/; done
+
 # libreria per il portale: senza i percorsi di Melchior
 node -e '
 const l = JSON.parse(require("fs").readFileSync("tools/libreria.json", "utf8"));
@@ -28,6 +32,10 @@ for n in 1 2 3 4; do
   [[ -f $src ]] && cp -u "$src" "data/media/msdos622-$n.img" && ET[msdos622-$n.img]="MS-DOS 6.22 ITA - disco $n"
 done
 [[ -f media/os/win311-ita/WIN311ITA.iso ]] && cp -u media/os/win311-ita/WIN311ITA.iso data/media/win311-ita.iso && ET[win311-ita.iso]="Windows per Workgroups 3.11 ITA (CD)"
+# CD dei dati di Faery Tale Adventure II (immagini, suoni, voci), creato da tools/crea_dos.sh del
+# progetto melchior-fta2; la parte su C: la copia crea-disco.mjs dalla voce della libreria
+FTA2_ISO=~/Claude/melchior-fta2/build/dos/FTA2DATI.ISO
+[[ -f $FTA2_ISO ]] && cp -u "$FTA2_ISO" data/media/fta2-dati.iso && ET[fta2-dati.iso]="Faery Tale Adventure II - dati (CD)"
 {
   echo "{"
   first=1
