@@ -474,8 +474,17 @@ legge quello della voce `pixellab` di `~/.claude.json` senza stamparlo né copia
 
 ## Licenze e materiale protetto
 
-Il codice è **GPL-2.0 o successiva**, come 86Box e Web86Box (`LICENSE`). Il font è ricavato dal VGABIOS
-LGPL; CuteMouse e UDVD2 vengono da FreeDOS (GPL / liberi con sorgenti).
+Il codice è **GPL-2.0 o successiva**, come 86Box e Web86Box (`LICENSE`).
+
+Fanno eccezione `tools/86box/jit/wasm-emit.c` e `wasm-emit.h`, che vengono da
+[PCem-WebAssembly](https://github.com/va3jfl/PCem-WebAssembly) e sono **GPL-2.0 soltanto**, come PCem. Il
+resto del backend del ricompilatore segue lo stesso progetto come modello. Per questo `86Box.wasm`, che li
+contiene, si distribuisce con la GPL versione 2.
+
+Le altre parti:
+- il frontend di Web86Box (`app/js/*.js`, `app/coi-serviceworker.js`) è GPL-2.0 o successiva;
+- il font è ricavato dal VGABIOS LGPL-2.1;
+- CuteMouse e UDVD2 vengono da FreeDOS (GPL / liberi con sorgenti), sono programmi a parte copiati sul disco.
 
 **Non sono nel repository**: MS-DOS 6.22 e Windows 3.11, i giochi, le ROM dei BIOS (set di 86Box) e quelle
 della Roland MT-32. Dalla 0.6 il sito è aperto a chiunque per scelta del proprietario, quindi li serve a chi lo visita: è
