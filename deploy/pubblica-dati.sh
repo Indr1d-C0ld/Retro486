@@ -9,6 +9,7 @@
 # quello che hai salvato dal portale.
 set -euo pipefail
 cd "$(dirname "$(readlink -f "$0")")/.."
+[[ -f deploy/locale.env ]] && source deploy/locale.env
 HOST=${R486_HOST:-balthasar}
 DEST=${R486_DEST:-/var/www/html/retro486}/dati
 FORZA=""; [[ ${1:-} == --forza ]] && FORZA=1

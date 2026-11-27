@@ -9,7 +9,8 @@ dischi, profili e supporti.
 
 ![Il portale: la scheda SISTEMA](docs/img/01-sistema.png)
 
-> Indirizzo: https://example.org/retro486/ (aperto a tutti; scrive sul server solo l'admin).
+> Il sito pubblicato è aperto a tutti; scrive sul server solo l'admin. L'indirizzo non è nel repository:
+> `deploy/pubblica.sh` lo legge da `deploy/locale.env` (vedi `deploy/locale.env.esempio`).
 
 ## Indice
 
@@ -442,6 +443,10 @@ Screenshot del README: `node tools/dev/screenshot.mjs` (Chromium headless con We
 `prova-libreria`, `prova-midi`, `prova-scambio`, `prova-windows`, `prova-fabbrica`, `prova-ospite` in `tools/dev/`.
 
 ## Pubblicazione su Balthasar
+
+Le impostazioni locali stanno in `deploy/locale.env`, escluso da git: si copia `deploy/locale.env.esempio` e si
+scrivono l'indirizzo pubblico del sito (`R486_URL`, serve alla verifica dopo la pubblicazione) ed eventualmente
+host ssh e cartella del server.
 
 Prima volta (il passo con sudo chiede password, quindi lo lanci tu):
 

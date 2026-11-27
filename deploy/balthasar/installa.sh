@@ -29,4 +29,4 @@ a2enmod -q headers deflate >/dev/null
 a2enconf -q retro486
 apache2ctl configtest
 systemctl reload apache2
-echo "Fatto: https://example.org/retro486/ (pubblica i file da Melchior con deploy/pubblica.sh)"
+echo "Fatto: sito in $SITO, servito sotto /retro486/ (pubblica i file da Melchior con deploy/pubblica.sh)"

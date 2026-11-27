@@ -7,3 +7,6 @@
 node_modules/
 *.prima-di-*
 /tools/pixellab/uscita/
+# impostazioni locali di pubblicazione (indirizzo del server)
+/deploy/locale.env
+__pycache__/

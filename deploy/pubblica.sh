@@ -14,9 +14,11 @@
 set -euo pipefail
 cd "$(dirname "$(readlink -f "$0")")/.."
 
+# impostazioni locali (indirizzo del sito, host ssh): deploy/locale.env, fuori da git; vedi locale.env.esempio
+[[ -f deploy/locale.env ]] && source deploy/locale.env
 HOST=${R486_HOST:-balthasar}
 DEST=${R486_DEST:-/var/www/html/retro486}
-URL=${R486_URL:-https://example.org/retro486/}
+URL=${R486_URL:-}
 
 if [[ ${1:-} == --installatore ]]; then
   ssh "$HOST" 'mkdir -p ~/Claude/balthasar-retro486'
@@ -37,6 +39,7 @@ rsync -rltz --delete --delay-updates $DRY \
   dist/ "$HOST:$DEST/"
 
 [[ -n $DRY ]] && exit 0
+[[ -n $URL ]] || { echo "   verifica saltata: manca R486_URL (deploy/locale.env)"; exit 0; }
 echo "== verifica =="
 code=$(curl -s -o /dev/null -w '%{http_code}' "$URL")
 scrivi=$(curl -s -o /dev/null -w '%{http_code}' -X PUT -H 'X-Retro486: 1' -H 'Content-Type: application/json' --data '[]' "${URL}api/profili.php")
