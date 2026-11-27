@@ -16,6 +16,8 @@ FORZA=""; [[ ${1:-} == --forza ]] && FORZA=1
 [[ -f data/dischi/c.img.gz ]] || { echo "Manca data/dischi/c.img.gz: node tools/crea-disco.mjs && bash tools/prepara-dati.sh" >&2; exit 1; }
 OPZ=(-rltz --chmod=D2775,F0664)
 rsync "${OPZ[@]}" data/libreria.json "$HOST:$DEST/"
+# copertine dei giochi di serie; quelle delle schede degli utenti (u*.*) restano come sono
+[[ -d data/libreria ]] && rsync "${OPZ[@]}" --exclude 'u*' data/libreria/ "$HOST:$DEST/libreria/"
 rsync "${OPZ[@]}" --ignore-existing data/media/ "$HOST:$DEST/media/"
 rsync "${OPZ[@]}" data/media/etichette.json "$HOST:$DEST/media/"
 if [[ -n $FORZA ]]; then
